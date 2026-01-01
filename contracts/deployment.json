@@ -1,0 +1,11 @@
+{
+  "network": "bnb_testnet",
+  "chainId": "97",
+  "timestamp": "2025-12-31T05:20:00.000Z",
+  "contracts": {
+    "BufferToken": "0x9fC13607928C82287C9fAc7f0BA954FA9cA5F0aa",
+    "FeeCollector": "0x0c28520D190449C0AC1CFEA63657b65730e3b9A0",
+    "EscrowProxy": "0xb6422f04579872B75e1E1D88c016E3589014FAFC",
+    "MockAggregator": "0x0512f7573e137FEbD07eD73d442AEad8B220Bb96"
+  }
+}

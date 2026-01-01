@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/* 隐藏数字输入框的默认微调按钮 (Chrome, Safari, Edge, Opera) */
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  margin: 0; 
+}
+
+/* 隐藏数字输入框的默认微调按钮 (Firefox) */
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* --- 自定义滚动条样式 (Dark Mode 适配) --- */
+
+/* 针对 Webkit 浏览器 (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 6px;  /* 纵向滚动条宽度 */
+  height: 6px; /* 横向滚动条高度 */
+}
+
+/* 滚动条轨道 */
+::-webkit-scrollbar-track {
+  background: transparent; /* 透明轨道，融入背景 */
+}
+
+/* 滚动条滑块 */
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1); /* 默认低调的半透明白 */
+  border-radius: 999px; /* 圆角 */
+  border: 2px solid transparent; /* 增加透明边框让滑块看起来更细 */
+  background-clip: content-box;
+}
+
+/* 鼠标悬停在滑块上 */
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2); /* 悬停时稍微亮一点 */
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+
+/* 针对 Firefox (标准属性) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+/* 自定义类：隐藏滚动条但允许滚动 */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

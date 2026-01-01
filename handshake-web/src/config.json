@@ -1,0 +1,39 @@
+{
+  "network": {
+    "name": "BNB Testnet",
+    "chainId": 97,
+    "rpcUrl": "https://data-seed-prebsc-1-s1.binance.org:8545",
+    "blockExplorer": "https://testnet.bscscan.com"
+  },
+  "contracts": {
+    "BufferToken": {
+      "address": "0x9fC13607928C82287C9fAc7f0BA954FA9cA5F0aa",
+      "abi": [
+        "function mint(address to, uint256 amount) public",
+        "function approve(address spender, uint256 amount) public returns (bool)",
+        "function allowance(address owner, address spender) public view returns (uint256)",
+        "function balanceOf(address account) public view returns (uint256)",
+        "function transfer(address to, uint256 value) public returns (bool)"
+      ]
+    },
+    "EscrowProxy": {
+      "address": "0xb6422f04579872B75e1E1D88c016E3589014FAFC",
+      "abi": [
+        "function initiate(address _token, address _receiver, uint256 _amount) payable returns (bytes32)",
+        "function confirm(bytes32 _id) external",
+        "function cancel(bytes32 _id) external",
+        "function getOutboxIds(address _user) external view returns (bytes32[])",
+        "function getInboxIds(address _user) external view returns (bytes32[])",
+        "function activeTransfers(bytes32) external view returns (address sender, address receiver, address token, uint256 amount, uint256 createdAt, uint256 expiresAt)",
+        "event TransferInitiated(bytes32 indexed id, address indexed sender, address indexed receiver, uint256 amount)",
+        "event TransferSettled(bytes32 indexed id, string action)"
+      ]
+    },
+    "MockAggregator": {
+      "address": "0x0512f7573e137FEbD07eD73d442AEad8B220Bb96",
+      "abi": [
+        "function updateAnswer(int256 _answer) external"
+      ]
+    }
+  }
+}
