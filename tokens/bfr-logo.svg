@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6366f1;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background Circle -->
+  <circle cx="100" cy="100" r="100" fill="url(#grad)" />
+  
+  <!-- Shield Icon (Solid & Split Tone) -->
+  <!-- Centered Calculation: -->
+  <!-- Height: 130 (-50 to 80). Visual center around 15. -->
+  <!-- To center at 100, we translate by (100, 100-15) = (100, 85) -->
+  <g transform="translate(100, 85) scale(0.85)">
+    <!-- Left Half (Full White) -->
+    <path d="M0 -50 L-45 -30 V10 C-45 45 -25 70 0 80 Z" fill="white" />
+    
+    <!-- Right Half (Semi-transparent White for 3D effect) -->
+    <path d="M0 -50 L45 -30 V10 C45 45 25 70 0 80 Z" fill="white" fill-opacity="0.7" />
+  </g>
+</svg>
