@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ethers } from 'ethers';
-import { FaPaperPlane, FaWallet, FaCheckCircle, FaExclamationTriangle, FaChevronDown, FaLayerGroup, FaCoins, FaDollarSign, FaQuestionCircle, FaSync } from 'react-icons/fa';
+import { FaPaperPlane, FaWallet, FaCheckCircle, FaExclamationTriangle, FaChevronDown, FaLayerGroup, FaCoins, FaDollarSign, FaQuestionCircle, FaSync, FaShieldAlt } from 'react-icons/fa';
 import config from './config.json';
 import { useToast } from './components/Toast';
 import { useLanguage } from './App';
@@ -271,7 +271,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
   };
 
   return (
-    <div className="bg-slate-800/40 backdrop-blur-md border border-white/5 p-4 md:p-8 rounded-[2rem] shadow-xl h-auto md:h-[550px] flex flex-col">
+    <div className="bg-slate-800/40 backdrop-blur-md border border-white/5 p-4 md:p-8 rounded-[2rem] shadow-xl h-auto flex flex-col">
       <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2 shrink-0">
         <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
         {t.initiateTransfer}
@@ -406,6 +406,20 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
               t.transfer
             )}
           </button>
+        </div>
+
+        {/* Security Notice moved here */}
+        <div className="mt-6 pt-6 border-t border-white/5">
+           <h4 className="text-blue-400 font-bold text-xs mb-2 flex items-center gap-1.5">
+             <FaShieldAlt /> {t.securityNotice}
+           </h4>
+           <div className="space-y-1.5 text-[10px] text-slate-400 leading-relaxed">
+              <ul className="list-disc pl-3 space-y-1">
+                <li dangerouslySetInnerHTML={{ __html: t.escrowMechanism }}></li>
+                <li dangerouslySetInnerHTML={{ __html: t.safetyTip }}></li>
+                <li dangerouslySetInnerHTML={{ __html: t.checkRecipient }}></li>
+              </ul>
+            </div>
         </div>
       </div>
     </div>

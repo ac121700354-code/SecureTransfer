@@ -279,7 +279,7 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
   const sortedOutbox = [...outbox].sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
 
   return (
-    <div className="bg-slate-900/20 rounded-[2.5rem] border border-white/5 overflow-hidden h-[550px] flex flex-col">
+    <div className="bg-slate-900/20 rounded-[2.5rem] border border-white/5 overflow-hidden h-[700px] flex flex-col">
       <div className="p-6 border-b border-white/5 flex justify-between items-center shrink-0 bg-slate-800/20">
         <h3 className="text-white font-bold text-lg flex items-center gap-2">
            <FaInbox className="text-blue-500" /> {t.history}

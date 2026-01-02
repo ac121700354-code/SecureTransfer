@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, createContext, useCont
 import { ethers } from 'ethers';
 import InitiateTransfer from './InitiateTransfer';
 import OrderList from './OrderList';
+import IntroSection from './components/IntroSection';
 import { FaWallet, FaShieldAlt, FaSignOutAlt, FaExchangeAlt, FaNetworkWired, FaEthereum, FaLayerGroup, FaChevronDown, FaSpinner, FaGlobe } from 'react-icons/fa';
 import { SiBinance } from 'react-icons/si';
 import WalletModal from './components/WalletModal';
@@ -9,6 +10,7 @@ import { ToastProvider, useToast } from './components/Toast';
 import WhitepaperModal from './components/WhitepaperModal';
 import config from './config.json';
 import { translations } from './translations';
+import { WALLETS } from './config/wallets';
 
 // --- Language Context ---
 export const LanguageContext = createContext();
@@ -332,6 +334,17 @@ export default function App() {
   const handleConnect = useCallback(async (providerObj, walletName) => {
     localStorage.removeItem('isManualDisconnect');
     isManualDisconnect.current = false;
+
+    // Save wallet choice for auto-connect
+    try {
+        const walletConfig = WALLETS.find(w => w.name === walletName);
+        if (walletConfig) {
+            localStorage.setItem('lastWalletId', walletConfig.id);
+        }
+    } catch (e) {
+        console.error("Failed to save wallet preference:", e);
+    }
+
     const targetProvider = providerObj || walletProvider || window.ethereum;
     if (!targetProvider) return alert("Please install a wallet!");
     
@@ -374,58 +387,179 @@ export default function App() {
   };
 
   useEffect(() => {
-    const provider = walletProvider;
-    if (provider) {
-      const handleAccountsChanged = (accounts) => {
+    // Separate listener effect to avoid re-binding during auto-connect logic
+    if (!walletProvider) return;
+    
+    const handleAccountsChanged = (accounts) => {
         if (accounts.length > 0) {
-          setAccount(accounts[0]);
-          setRefreshTrigger(prev => prev + 1);
+            setAccount(accounts[0]);
+            setRefreshTrigger(prev => (typeof prev === 'number' ? prev + 1 : 1));
         } else {
-          setAccount("");
+            setAccount("");
         }
-      };
+    };
 
-      const handleChainChanged = (chainIdHex) => {
-         // Note: We ignore chain changes from the wallet to keep user's UI selection stable.
-         // Unless we want to strictly enforce consistency? 
-         // User requested: "subsequent updates should keep user's last choice"
-         // So we just log it but don't update state.
-         const id = parseInt(chainIdHex, 16);
-         console.log("Wallet Chain Changed (Ignored by UI):", id);
-         setRefreshTrigger(prev => (typeof prev === 'number' ? prev + 1 : 1));
-      };
+    const handleChainChanged = (chainIdHex) => {
+        const id = parseInt(chainIdHex, 16);
+        console.log("Wallet Chain Changed (Ignored by UI):", id);
+        setRefreshTrigger(prev => (typeof prev === 'number' ? prev + 1 : 1));
+    };
 
-      if (provider.on) {
-        provider.on('accountsChanged', handleAccountsChanged);
-        provider.on('chainChanged', handleChainChanged);
-      }
+    if (walletProvider.on) {
+        walletProvider.on('accountsChanged', handleAccountsChanged);
+        walletProvider.on('chainChanged', handleChainChanged);
+    }
 
-      // Auto-connect if already trusted
-      const manualDisconnect = localStorage.getItem('isManualDisconnect') === 'true';
-      if (!isManualDisconnect.current && !manualDisconnect) {
-        provider.request({ method: 'eth_accounts' })
-          .then(async (accounts) => {
-            if (accounts.length > 0) {
-              setAccount(accounts[0]);
-              // Note: We DO NOT sync chainId here anymore.
+    return () => {
+        if (walletProvider.removeListener) {
+            walletProvider.removeListener('accountsChanged', handleAccountsChanged);
+            walletProvider.removeListener('chainChanged', handleChainChanged);
+        }
+    };
+  }, [walletProvider]);
+
+  useEffect(() => {
+    // Flag to synchronize between EIP-6963 and initAuth fallback
+    let isAuthCompleted = false;
+
+    const initAuth = async () => {
+      // If already connected via EIP-6963, skip this fallback
+      if (isAuthCompleted) return;
+
+      try {
+        // 1. Check if manually disconnected
+        const manualDisconnect = localStorage.getItem('isManualDisconnect') === 'true';
+        const lastWalletId = localStorage.getItem('lastWalletId');
+        
+        if (isManualDisconnect.current || manualDisconnect) {
+            return;
+        }
+
+        // Wait a bit longer to give EIP-6963 a chance to win first
+        await new Promise(r => setTimeout(r, 1500));
+        
+        // Double check after wait
+        if (isAuthCompleted) return;
+
+        // 2. Try to get provider with retries (wait for injection)
+        let provider = walletProvider || window.ethereum;
+        let retries = 0;
+        // Wait up to 1 second for injection
+        while (!provider && retries < 10) {
+            await new Promise(r => setTimeout(r, 100));
+            provider = window.ethereum;
+            retries++;
+        }
+
+        // 3. Try to recover specific provider from lastWalletId
+        let recoveredProvider = null;
+        try {
+            if (lastWalletId && typeof WALLETS !== 'undefined') {
+                 const walletConfig = WALLETS.find(w => w.id === lastWalletId);
+                 if (walletConfig) {
+                     // IMPORTANT: Pass window.ethereum?.providers as well to help getProvider find the right one
+                     // Some wallets inject into window.ethereum.providers but might not be the active window.ethereum
+                     const specificProvider = walletConfig.getProvider([]); 
+                     if (specificProvider) {
+                         recoveredProvider = specificProvider;
+                     }
+                 }
             }
-          })
-          .catch(console.error)
-          .finally(() => setIsInitializing(false));
-      } else {
+        } catch (err) {
+            console.warn("Failed to recover wallet provider:", err);
+        }
+
+        // Only use recovered provider if we actually found one.
+        // If recoveredProvider is null, it means we couldn't find the specific wallet user used last time.
+        // In that case, we should NOT fallback to 'provider' (window.ethereum) blindly if it might be the wrong one.
+        // BUT, if we don't fallback, user has to connect again.
+        // The issue "linking to another wallet" happens because window.ethereum defaults to the last injected one (e.g. OKX),
+        // while user wants MetaMask.
+        
+        let activeProvider = recoveredProvider;
+        
+        // Strategy:
+        // 1. If we found a specific recoveredProvider, use it.
+        // 2. If not, but we have a lastWalletId, try the default provider (window.ethereum) cautiously.
+        //    - If it already has authorized accounts (eth_accounts returns > 0), we connect. 
+        //      (This handles the case where MetaMask is hidden by OKX but user authorized OKX before, 
+        //       or MetaMask is just slow to inject but window.ethereum works).
+        //    - If it has NO accounts, we DO NOT connect to avoid connecting to the wrong wallet unexpectedly.
+
+        if (!activeProvider && localStorage.getItem('lastWalletId')) {
+              // Fallback to default provider to check for existing authorization
+              activeProvider = provider;
+        } else if (!activeProvider && !localStorage.getItem('lastWalletId')) {
+              // No preference, no auto-connect
+              activeProvider = null;
+        }
+
+        if (activeProvider) {
+            // Update state if we found a better provider
+            if (activeProvider !== walletProvider) {
+                setWalletProvider(activeProvider);
+            }
+
+            // 4. Request accounts (silently)
+            try {
+                const accounts = await activeProvider.request({ method: 'eth_accounts' });
+                if (accounts.length > 0) {
+                    setAccount(accounts[0]);
+                }
+            } catch (e) {
+                console.warn("Auto-connect failed:", e);
+            }
+        }
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+      } finally {
         setIsInitializing(false);
       }
+    };
 
-      return () => {
-        if (provider.removeListener) {
-          provider.removeListener('accountsChanged', handleAccountsChanged);
-          provider.removeListener('chainChanged', handleChainChanged);
+    // EIP-6963 Listener for auto-connect
+    const handleEIP6963 = (event) => {
+        const manualDisconnect = localStorage.getItem('isManualDisconnect') === 'true';
+        const lastWalletId = localStorage.getItem('lastWalletId');
+        
+        if (manualDisconnect) return;
+        if (!lastWalletId) return; 
+
+        const detail = event.detail;
+        if (!detail) return;
+
+        let match = false;
+        if (lastWalletId === 'metamask' && (detail.info.name === 'MetaMask' || detail.info.rdns === 'io.metamask')) match = true;
+        else if (lastWalletId === 'okx' && (detail.info.name === 'OKX Wallet' || detail.info.rdns === 'com.okex.wallet')) match = true;
+        else if (lastWalletId === 'binance' && (detail.info.name === 'Binance Web3 Wallet' || detail.info.rdns === 'com.binance.w3w')) match = true;
+        else if (lastWalletId === 'bitget' && (detail.info.name === 'Bitget Wallet' || detail.info.rdns === 'com.bitget.web3')) match = true;
+        
+        if (match) {
+            isAuthCompleted = true;
+            const provider = detail.provider;
+            // Only switch if different (though provider objects identity might vary)
+            setWalletProvider(provider);
+            provider.request({ method: 'eth_accounts' })
+                .then(accounts => {
+                    if (accounts.length > 0) {
+                        setAccount(accounts[0]);
+                        // Stop initializing if we found it late
+                        setIsInitializing(false);
+                    }
+                })
+                .catch(console.error);
         }
-      };
-    } else {
-      setIsInitializing(false);
-    }
-  }, [walletProvider]);
+    };
+
+    window.addEventListener("eip6963:announceProvider", handleEIP6963);
+    window.dispatchEvent(new Event("eip6963:requestProvider"));
+
+    initAuth();
+
+    return () => {
+        window.removeEventListener("eip6963:announceProvider", handleEIP6963);
+    };
+  }, []); // Run once on mount
 
   const onTransactionSuccess = (order) => {
     setRefreshTrigger(order || (prev => (typeof prev === 'number' ? prev + 1 : 1)));
@@ -484,19 +618,8 @@ export default function App() {
             </nav>
 
             <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8">
-              <div className="mb-6 px-4 md:px-6 py-4 bg-blue-500/5 rounded-2xl border border-blue-500/10 backdrop-blur-sm">
-                 <h4 className="text-blue-400 font-bold text-sm mb-1.5 flex items-center gap-2">
-                   <FaShieldAlt /> {t.securityNotice}
-                 </h4>
-                 <div className="space-y-2 text-xs text-slate-400 leading-relaxed">
-                    <ul className="list-disc pl-4 space-y-1.5 border-t border-blue-500/10 pt-2">
-                      <li dangerouslySetInnerHTML={{ __html: t.escrowMechanism }}></li>
-                      <li dangerouslySetInnerHTML={{ __html: t.safetyTip }}></li>
-                      <li dangerouslySetInnerHTML={{ __html: t.checkRecipient }}></li>
-                    </ul>
-                  </div>
-               </div>
-
+              <IntroSection />
+              
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
                 <div className="lg:col-span-4 space-y-8">
                   <div className="sticky top-28">
@@ -529,7 +652,7 @@ export default function App() {
                       />
                     </ErrorBoundary>
                   ) : (
-                    <div className="h-[550px] flex flex-col items-center justify-center bg-slate-800/30 rounded-[2rem] border border-dashed border-slate-700/50">
+                    <div className="min-h-[700px] h-full flex flex-col items-center justify-center bg-slate-800/30 rounded-[2rem] border border-dashed border-slate-700/50">
                       <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mb-6 shadow-inner">
                         <FaWallet className="text-3xl text-slate-600" />
                       </div>
