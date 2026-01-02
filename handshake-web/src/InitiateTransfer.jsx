@@ -3,9 +3,11 @@ import { ethers } from 'ethers';
 import { FaPaperPlane, FaWallet, FaCheckCircle, FaExclamationTriangle, FaChevronDown, FaLayerGroup, FaCoins, FaDollarSign, FaQuestionCircle, FaSync } from 'react-icons/fa';
 import config from './config.json';
 import { useToast } from './components/Toast';
+import { useLanguage } from './App';
 
 const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSuccess, refreshBalanceTrigger, activeCount = 0, activeConfig, chainId }) => {
   const toast = useToast();
+  const { t } = useLanguage();
   
   // Note: activeConfig and chainId are now passed from App.jsx
 
@@ -112,33 +114,33 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
 
   useEffect(() => {
     if (isLimitReached) {
-      setError(`达到最大待处理交易限制 (${MAX_ACTIVE_TRANSFERS})。请先处理现有交易。`);
+      setError(`${t.limitReached} (${MAX_ACTIVE_TRANSFERS}).`);
     } else {
-      setError((prev) => (prev && prev.includes("达到最大待处理交易限制") ? "" : prev));
+      setError((prev) => (prev && prev.includes(t.limitReached) ? "" : prev));
     }
-  }, [isLimitReached]);
+  }, [isLimitReached, t.limitReached]);
 
   const handleNext = async () => {
     if (isLimitReached) return;
     setError(""); // 清除之前的错误信息
 
     if (!account) {
-      setError("请先连接钱包！");
+      setError(t.pleaseConnectWallet);
       return;
     }
     
     if (!canProceed) {
-      setError("请填写完整信息！");
+      setError(t.fillAllFields);
       return;
     }
 
     if (!contracts) {
-      setError("不支持该网络，请切换到 BNB Testnet");
+      setError(t.unsupportedNetwork);
       return;
     }
 
     if (activeCount >= MAX_ACTIVE_TRANSFERS) {
-      setError(`达到最大待处理交易限制 (${MAX_ACTIVE_TRANSFERS})。请先处理现有交易。`);
+      setError(`${t.limitReached} (${MAX_ACTIVE_TRANSFERS}).`);
       return;
     }
     
@@ -172,7 +174,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
         
         // 0. 预检查：余额是否充足
         if (parseFloat(amount) > parseFloat(balance)) {
-          setError(`余额不足！您只有 ${parseFloat(balance).toFixed(4)} ${selectedToken.symbol}`);
+          setError(`${t.insufficientBalance} ${parseFloat(balance).toFixed(4)} ${selectedToken.symbol}`);
           setLoading(false);
           return;
         }
@@ -188,7 +190,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
         // Native Token (BNB)
         // 余额检查
         if (parseFloat(amount) > parseFloat(balance)) {
-          setError(`余额不足！您只有 ${parseFloat(balance).toFixed(4)} BNB`);
+          setError(`${t.insufficientBalance} ${parseFloat(balance).toFixed(4)} BNB`);
           setLoading(false);
           return;
         }
@@ -234,7 +236,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
         console.warn("Failed to parse logs for optimistic update:", e);
       }
 
-      toast.success("Transaction Initiated Successfully!");
+      toast.success(t.transactionInitiated);
       
       // setStep(0);  // 移除
       setAmount(""); 
@@ -248,15 +250,15 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
 
     } catch (err) {
       console.error("交易出错:", err);
-      let errorMessage = "交易失败";
+      let errorMessage = t.transactionFailed;
       
       // 解析常见错误
       if (err.code === 4001) { 
-        errorMessage = "您取消了交易。";
+        errorMessage = t.cancelled;
       } else if (JSON.stringify(err).includes("Token not whitelisted")) {
-        errorMessage = "该代币暂未被合约支持 (Not Whitelisted)";
+        errorMessage = t.notWhitelisted;
       } else if (err.reason) {
-        errorMessage = "交易失败: " + err.reason;
+        errorMessage = t.transactionFailed + ": " + err.reason;
       } else if (err.info && err.info.error && err.info.error.message) {
          errorMessage = err.info.error.message;
       }
@@ -272,12 +274,12 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
     <div className="bg-slate-800/40 backdrop-blur-md border border-white/5 p-4 md:p-8 rounded-[2rem] shadow-xl h-auto md:h-[550px] flex flex-col">
       <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2 shrink-0">
         <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
-        Initiate Transfer
+        {t.initiateTransfer}
       </h2>
       
       <div className="space-y-6 flex-1 overflow-y-auto custom-scrollbar pr-0 md:pr-2">
             <div className="space-y-2">
-              <label className="text-xs text-slate-400 font-bold uppercase tracking-wider ml-1">Asset Type</label>
+              <label className="text-xs text-slate-400 font-bold uppercase tracking-wider ml-1">{t.assetType}</label>
               <div className="relative" ref={tokenDropdownRef}>
                 <button 
                   onClick={() => setIsTokenOpen(!isTokenOpen)}
@@ -316,7 +318,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
 
             {!selectedToken.address && (
               <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                <label className="text-xs text-slate-400 font-bold uppercase tracking-wider ml-1">Token Contract Address</label>
+                <label className="text-xs text-slate-400 font-bold uppercase tracking-wider ml-1">{t.tokenContractAddress}</label>
                 <div className="relative group">
                   <input 
                     placeholder="0x..." 
@@ -328,12 +330,12 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
                     onChange={e => setCustomTokenAddress(e.target.value)} 
                   />
                 </div>
-                {customTokenAddress && !ethers.isAddress(customTokenAddress) && <p className="text-xs text-rose-400 ml-1 font-medium">⚠️ Invalid Contract address</p>}
+                {customTokenAddress && !ethers.isAddress(customTokenAddress) && <p className="text-xs text-rose-400 ml-1 font-medium">{t.invalidContractAddress}</p>}
               </div>
             )}
 
             <div className="space-y-2">
-              <label className="text-xs text-slate-400 font-bold uppercase tracking-wider ml-1">Receiver Address</label>
+              <label className="text-xs text-slate-400 font-bold uppercase tracking-wider ml-1">{t.receiverAddress}</label>
               <div className="relative group">
                 <input 
                   placeholder="0x..." 
@@ -345,26 +347,34 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
                   onChange={e => setReceiver(e.target.value)} 
                 />
               </div>
-              {receiver && !isAddressValid && <p className="text-xs text-rose-400 ml-1 font-medium">⚠️ Invalid Ethereum address</p>}
+              {receiver && !isAddressValid && <p className="text-xs text-rose-400 ml-1 font-medium">{t.invalidEthAddress}</p>}
             </div>
 
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <label className="text-xs text-slate-400 font-bold uppercase tracking-wider ml-1">Amount</label>
+                <label className="text-xs text-slate-400 font-bold uppercase tracking-wider ml-1">{t.amount}</label>
                 <div className="text-[10px] text-slate-500 font-medium flex items-center gap-1 bg-slate-800/50 px-2 py-0.5 rounded border border-white/5">
-                  Balance: {isBalanceLoading ? <FaSync className="animate-spin text-[8px]" /> : <span className="text-slate-300 font-mono">{parseFloat(balance).toFixed(4)}</span>} {selectedToken.symbol}
+                  {t.balance}: {isBalanceLoading ? <FaSync className="animate-spin text-[8px]" /> : <span className="text-slate-300 font-mono">{parseFloat(balance).toFixed(4)}</span>} {selectedToken.symbol}
                 </div>
               </div>
               <div className="relative">
                  <input 
                   placeholder="0.00" 
                   type="number" 
+                  min="0"
+                  step="any"
+                  onWheel={(e) => e.target.blur()} 
                   className={`w-full bg-slate-900/50 border p-4 rounded-xl outline-none transition-all text-2xl font-bold placeholder:text-slate-700
                     ${amount && !isAmountValid 
                       ? 'border-rose-500/50 focus:ring-2 focus:ring-rose-500/20' 
                       : 'border-white/5 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10'}`}
                   value={amount}
-                  onChange={e => setAmount(e.target.value)} 
+                  onChange={e => {
+                      const val = e.target.value;
+                      if (val === "" || parseFloat(val) >= 0) {
+                          setAmount(val);
+                      }
+                  }} 
                 />
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-500 bg-slate-800 px-2 py-1 rounded">
                   {selectedToken.symbol}
@@ -389,11 +399,11 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
             `}
           >
             {loading ? (
-              <span className="flex items-center gap-2 animate-pulse"><FaPaperPlane /> Processing...</span>
+              <span className="flex items-center gap-2 animate-pulse"><FaPaperPlane /> {t.processing}</span>
             ) : isLimitReached ? (
-              `Limit Reached (${activeCount}/${MAX_ACTIVE_TRANSFERS})`
+              `${t.limitReached} (${activeCount}/${MAX_ACTIVE_TRANSFERS})`
             ) : (
-              "Transfer"
+              t.transfer
             )}
           </button>
         </div>

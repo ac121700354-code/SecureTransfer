@@ -28,6 +28,11 @@ module.exports = {
       gasPrice: 5000000000, // 5 Gwei
       accounts: (process.env.PRIVATE_KEY && process.env.PRIVATE_KEY.length >= 64) ? [process.env.PRIVATE_KEY] : [],
     },
+    sepolia: {
+      url: "https://1rpc.io/sepolia",
+      chainId: 11155111,
+      accounts: (process.env.PRIVATE_KEY && process.env.PRIVATE_KEY.length >= 64) ? [process.env.PRIVATE_KEY] : [],
+    },
   },
   etherscan: {
     apiKey: process.env.BSCSCAN_API_KEY,

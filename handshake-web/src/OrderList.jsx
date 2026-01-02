@@ -3,12 +3,14 @@ import { ethers } from 'ethers';
 import { FaInbox, FaSignOutAlt, FaSync, FaCheckCircle, FaTimesCircle, FaHourglassHalf } from 'react-icons/fa';
 import config from './config.json';
 import { useToast } from './components/Toast';
+import { useLanguage } from './App';
 
 // Note: CONTRACT_ADDRESS is now dynamic, we get it inside the component.
 
 const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensConfig }) => {
   const isThisProcessing = processingState?.id === order.id;
   const processingAction = isThisProcessing ? processingState.action : null;
+  const { t } = useLanguage();
 
   const safeFormat = (val) => {
     try {
@@ -78,14 +80,14 @@ const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensC
             disabled={!!processingState}
             className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/10 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
           >
-            {processingAction === 'confirm' ? <FaHourglassHalf className="animate-spin" /> : <FaCheckCircle />} Release
+            {processingAction === 'confirm' ? <FaHourglassHalf className="animate-spin" /> : <FaCheckCircle />} {t.confirmPayment}
           </button>
           <button 
             onClick={() => onAction(order.id, 'cancel')}
             disabled={!!processingState}
             className="py-2 bg-slate-700 hover:bg-rose-500 hover:text-white text-slate-400 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
           >
-            {processingAction === 'cancel' ? <FaHourglassHalf className="animate-spin" /> : <FaTimesCircle />} Cancel
+            {processingAction === 'cancel' ? <FaHourglassHalf className="animate-spin" /> : <FaTimesCircle />} {t.cancelOrder}
           </button>
         </div>
       )}
@@ -95,6 +97,7 @@ const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensC
 
 export default function OrderList({ account, provider: walletProvider, refreshTrigger, onActionSuccess, onStatsUpdate, activeConfig, chainId }) {
   const toast = useToast();
+  const { t } = useLanguage();
   
   // Note: activeConfig is now passed from App.jsx
 
@@ -223,6 +226,7 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
     setProcessingState({ id, action: method });
     
     try {
+      // 必须使用 BrowserProvider 来获取签名者，而不是 JsonRpcProvider
       const provider = new ethers.BrowserProvider(walletProvider || window.ethereum);
       
       // Ensure wallet is on the selected network
@@ -245,7 +249,7 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
       await tx.wait(); 
 
       // 替换 alert 为 toast
-      toast.success(method === 'cancel' ? "Order Cancelled Successfully" : "Funds Released Successfully");
+      toast.success(method === 'cancel' ? t.cancelled : t.transactionInitiated);
 
       // 乐观更新
       setInbox(prev => prev.filter(item => item.id !== id));
@@ -253,9 +257,18 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
 
       if (onActionSuccess) onActionSuccess();
 
+      // 如果是放款操作，触发余额刷新
+      if (method === 'confirm' && onActionSuccess) {
+          // 这里 onActionSuccess 已经被调用了，它在 App.jsx 中会更新 refreshTrigger
+          // 但我们需要确保 InitiateTransfer 组件也能收到信号刷新余额
+          // 目前 App.jsx 中的逻辑是：setRefreshTrigger(prev => prev + 1)
+          // InitiateTransfer 监听了 refreshBalanceTrigger (即 App.jsx 的 refreshTrigger)
+          // 所以理论上余额会自动刷新。
+      }
+
     } catch (err) {
       console.error("Action error:", err);
-      const reason = err.reason || (err.message.includes("Only sender") ? "只有发起人可以操作" : "Transaction Failed");
+      const reason = err.reason || (err.message.includes("Only sender") ? t.transactionFailed : t.transactionFailed);
       toast.error(reason);
     } finally {
       setProcessingState(null);
@@ -269,7 +282,7 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
     <div className="bg-slate-900/20 rounded-[2.5rem] border border-white/5 overflow-hidden h-[550px] flex flex-col">
       <div className="p-6 border-b border-white/5 flex justify-between items-center shrink-0 bg-slate-800/20">
         <h3 className="text-white font-bold text-lg flex items-center gap-2">
-           <FaInbox className="text-blue-500" /> Current Transaction
+           <FaInbox className="text-blue-500" /> {t.history}
         </h3>
       </div>
 
@@ -277,7 +290,7 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
       {isInitialLoading ? (
         <div className="flex-1 flex flex-col items-center justify-center text-slate-500 space-y-4">
           <FaSync className="animate-spin text-2xl opacity-20" />
-          <p className="text-xs font-medium animate-pulse">Syncing with blockchain...</p>
+          <p className="text-xs font-medium animate-pulse">{t.processing}</p>
         </div>
       ) : (
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 min-h-0 divide-y md:divide-y-0 md:divide-x divide-white/5">
@@ -286,13 +299,13 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
             <div className="p-5 pb-3 shrink-0 bg-slate-800/10 backdrop-blur-sm sticky top-0 z-10 h-[52px] flex items-center">
               <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                Receive <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">{sortedInbox.length}</span>
+                {t.receiver} <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">{sortedInbox.length}</span>
               </h4>
             </div>
             <div className="flex-1 overflow-y-auto custom-scrollbar p-5 pt-0 flex flex-col">
               {sortedInbox.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-slate-800 rounded-xl bg-slate-800/20">
-                  <p className="text-xs text-slate-600">No received transactions</p>
+                  <p className="text-xs text-slate-600">{t.noActiveOrders}</p>
                 </div>
               ) : (
                 sortedInbox.map(o => (
@@ -315,13 +328,13 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
             <div className="p-5 pb-3 shrink-0 bg-slate-800/10 backdrop-blur-sm sticky top-0 z-10 h-[52px] flex items-center">
               <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
-                Send <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">{sortedOutbox.length}</span>
+                {t.sender} <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">{sortedOutbox.length}</span>
               </h4>
             </div>
             <div className="flex-1 overflow-y-auto custom-scrollbar p-5 pt-0 flex flex-col">
               {sortedOutbox.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-slate-800 rounded-xl bg-slate-800/20">
-                  <p className="text-xs text-slate-600">No sent transactions</p>
+                  <p className="text-xs text-slate-600">{t.noActiveOrders}</p>
                 </div>
               ) : (
                 sortedOutbox.map(o => (

@@ -74,5 +74,21 @@ contract MerkleDistributor {
         }
         return computedHash == root;
     }
+
+    /**
+     * @notice 提取合约中剩余的代币 (用于回收未领取的空投)
+     * @param tokenAddress 要提取的代币地址 (address(0) 为原生代币)
+     * @param to 接收地址
+     * @param amount 提取金额
+     */
+    function withdraw(address tokenAddress, address to, uint256 amount) external onlyOwner {
+        require(to != address(0), "Invalid address");
+        if (tokenAddress == address(0)) {
+            (bool success, ) = to.call{value: amount}("");
+            require(success, "Native transfer failed");
+        } else {
+            require(IERC20(tokenAddress).transfer(to, amount), "ERC20 transfer failed");
+        }
+    }
 }
 

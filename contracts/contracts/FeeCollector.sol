@@ -219,9 +219,6 @@ contract FeeCollector is Ownable, ReentrancyGuard {
         // 如果没有预言机，暂时按 0 价值计算，防止阻塞
         if (feed == address(0)) return 0;
 
-        (, int256 price, , , ) = AggregatorV3Interface(feed).latestRoundData();
-        if (price <= 0) return 0;
-
         uint8 feedDecimals = AggregatorV3Interface(feed).decimals();
         uint8 tokenDecimals;
         if (token == address(0)) {
@@ -237,6 +234,13 @@ contract FeeCollector is Ownable, ReentrancyGuard {
 
         // Value = Amount * Price
         // 统一转为 18 位精度 USD
+        
+        (, int256 price, , uint256 updatedAt, ) = AggregatorV3Interface(feed).latestRoundData();
+        
+        // Stale Price Check
+        if (price <= 0) return 0;
+        if (updatedAt == 0 || block.timestamp - updatedAt > 24 hours) return 0; // Stale price treated as 0 value
+        
         return (amount * uint256(price) * 1e18) / (10 ** feedDecimals) / (10 ** tokenDecimals); 
     }
     

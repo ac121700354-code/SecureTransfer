@@ -44,12 +44,11 @@ contract SecureHandshakeUnlimitedInbox is
         address token;      // 代币地址（0x0 代表原生代币）
         uint256 amount;     // 金额
         uint256 createdAt;  // 创建时间戳
-        uint256 expiresAt;  // 过期时间戳
     }
 
     // --- 协议配置 ---
-    uint256 public constant FEE_BPS = 10;            // 基础费率 0.1% (10/10000)
-    uint256 public constant MAX_PENDING_OUTBOX = 20; // 限制付款方：防止单地址滥用合约占用存储
+    // uint256 public constant FEE_BPS = 10;            // 移除常量定义，改为可配置变量
+    // uint256 public constant MAX_PENDING_OUTBOX = 20; // 移除常量定义，改为可配置变量
     uint256 public constant USD_UNIT = 1e18;         // 美元单位精度 (1e18 = $1)
     uint256 public constant USD_MIN_FEE = 1e16;      // 最低收费 $0.01
     uint256 public constant USD_MAX_FEE = 1e18;      // 最高收费封顶 $1.0
@@ -63,11 +62,15 @@ contract SecureHandshakeUnlimitedInbox is
     mapping(bytes32 => TransferRecord) public activeTransfers; // 交易ID -> 交易详情映射
     mapping(address => bytes32[]) private _inbox;    // 收件箱 (无长度限制，收款人索引)
     mapping(address => bytes32[]) private _outbox;   // 发件箱 (受限长度，付款人索引)
+    
+    // 索引映射：ID => Index (用于 O(1) 删除)
+    mapping(bytes32 => uint256) private _inboxIndex; 
+    mapping(bytes32 => uint256) private _outboxIndex;
 
     address public constant NATIVE_TOKEN = address(0); // 原生代币标识地址
 
-    // 新增存储字段需在末尾添加，避免存储冲突
-    uint256 public defaultTTL; // 默认订单有效期 (Time To Live)
+    uint256 public maxPendingOutbox; // 限制付款方：防止单地址滥用合约占用存储
+    uint256 public feeBps; // 基础费率 (基点: 10 = 0.1%)
 
     // 事件定义
     event TransferInitiated(bytes32 indexed id, address indexed sender, address indexed receiver, uint256 amount);
@@ -92,7 +95,25 @@ contract SecureHandshakeUnlimitedInbox is
 
         require(_treasury != address(0), "Treasury address zero");
         treasury = _treasury;
-        defaultTTL = 7 days; // 默认有效期 7 天
+        maxPendingOutbox = 20; // 默认 20 条
+        feeBps = 10; // 默认 0.1%
+    }
+
+    // --- UUPS 升级安全保护 ---
+    
+    /**
+     * @dev 版本 V2 初始化函数
+     * @notice 仅在从 V1 升级到 V2 时调用一次
+     * @notice 未来升级 V3 时，请添加 function reinitializeV3() reinitializer(3)
+     */
+    function reinitializeV2() public reinitializer(2) {
+     
+        if (maxPendingOutbox == 0) {
+            maxPendingOutbox = 20;
+        }
+        if (feeBps == 0) {
+            feeBps = 10;
+        }
     }
 
     // UUPS 升级授权检查：仅拥有者可升级合约逻辑
@@ -135,7 +156,7 @@ contract SecureHandshakeUnlimitedInbox is
         require(_amount >= minAmount, "Transfer amount below $1 minimum");
 
         // 4. 发件箱限制：防止单用户发起大量无效订单占用存储
-        require(_outbox[msg.sender].length < MAX_PENDING_OUTBOX, "Your outbox is full");
+        require(_outbox[msg.sender].length < maxPendingOutbox, "Your outbox is full");
 
         // 5. 生成唯一交易 ID (Hash: sender + receiver + timestamp + nonce)
         bytes32 id = keccak256(abi.encodePacked(
@@ -158,13 +179,13 @@ contract SecureHandshakeUnlimitedInbox is
             receiver: _receiver,
             token: _token,
             amount: _amount,
-            createdAt: block.timestamp,
-            expiresAt: block.timestamp + defaultTTL // 设置过期时间
+            createdAt: block.timestamp
+            // expiresAt: Removed
         });
 
         // 8. 更新双向索引
-        _inbox[_receiver].push(id); // 放入接收方收件箱
-        _outbox[msg.sender].push(id); // 放入发送方发件箱
+        _addToInbox(_receiver, id);
+        _addToOutbox(msg.sender, id);
 
         // 9. 抛出事件
         emit TransferInitiated(id, msg.sender, _receiver, _amount);
@@ -209,8 +230,8 @@ contract SecureHandshakeUnlimitedInbox is
         require(msg.sender == t.sender, "Only sender can authorize");
         // 2. 状态检查：订单是否存在
         require(t.receiver != address(0), "Record not found");
-        // 3. 有效期检查：订单是否已过期
-        require(block.timestamp <= t.expiresAt, "Record expired");
+        // 3. 有效期检查：订单是否已过期 - REMOVED
+        // require(block.timestamp <= t.expiresAt, "Record expired");
 
         // 4. 计算费用
         uint256 fee = _calculateFee(t.token, t.amount);
@@ -308,8 +329,11 @@ contract SecureHandshakeUnlimitedInbox is
         
         // 获取预言机价格
         AggregatorV3Interface priceFeed = AggregatorV3Interface(feed);
-        (, int256 price, , , ) = priceFeed.latestRoundData();
+        (uint80 roundId, int256 price, , uint256 updatedAt, uint80 answeredInRound) = priceFeed.latestRoundData();
         require(price > 0, "Invalid price");
+        require(updatedAt > 0, "Round not complete");
+        require(answeredInRound >= roundId, "Stale price");
+        require(block.timestamp - updatedAt < 24 hours, "Price expired");
 
         // 精度处理
         // usdAmount 是 18 位精度
@@ -331,20 +355,51 @@ contract SecureHandshakeUnlimitedInbox is
     // 彻底清理存储：删除 mapping 记录并从收发件箱数组中移除
     function _fullCleanup(address _sender, address _receiver, bytes32 _id) internal {
         delete activeTransfers[_id]; // 删除详情
-        _removeFromArray(_outbox[_sender], _id); // 移除发件箱索引
-        _removeFromArray(_inbox[_receiver], _id); // 移除收件箱索引
+        _removeFromOutbox(_sender, _id); // O(1) 移除发件箱索引
+        _removeFromInbox(_receiver, _id); // O(1) 移除收件箱索引
     }
 
-    // 数组移除元素（无序移除，Gas 优化：将最后一个元素移到被删位置，然后 pop）
-    function _removeFromArray(bytes32[] storage _list, bytes32 _id) internal {
-        uint256 length = _list.length;
-        for (uint256 i = 0; i < length; i++) {
-            if (_list[i] == _id) {
-                _list[i] = _list[length - 1]; // 覆盖当前元素
-                _list.pop(); // 移除末尾
-                break;
-            }
+    // --- 优化的数组操作 (O(1)) ---
+
+    function _addToInbox(address _receiver, bytes32 _id) internal {
+        // 记录新元素在数组中的索引
+        _inboxIndex[_id] = _inbox[_receiver].length;
+        _inbox[_receiver].push(_id);
+    }
+
+    function _addToOutbox(address _sender, bytes32 _id) internal {
+        _outboxIndex[_id] = _outbox[_sender].length;
+        _outbox[_sender].push(_id);
+    }
+
+    function _removeFromInbox(address _receiver, bytes32 _id) internal {
+        bytes32[] storage list = _inbox[_receiver];
+        uint256 index = _inboxIndex[_id];
+        uint256 lastIndex = list.length - 1;
+
+        if (index != lastIndex) {
+            bytes32 lastId = list[lastIndex];
+            list[index] = lastId; // 将最后一个元素移到被删除的位置
+            _inboxIndex[lastId] = index; // 更新移动元素的索引
         }
+
+        list.pop(); // 移除末尾
+        delete _inboxIndex[_id]; // 删除被删除元素的索引
+    }
+
+    function _removeFromOutbox(address _sender, bytes32 _id) internal {
+        bytes32[] storage list = _outbox[_sender];
+        uint256 index = _outboxIndex[_id];
+        uint256 lastIndex = list.length - 1;
+
+        if (index != lastIndex) {
+            bytes32 lastId = list[lastIndex];
+            list[index] = lastId;
+            _outboxIndex[lastId] = index;
+        }
+
+        list.pop();
+        delete _outboxIndex[_id];
     }
 
     /**
@@ -352,8 +407,8 @@ contract SecureHandshakeUnlimitedInbox is
      * @dev 规则：基础费率 0.1%，最低 $0.01，最高 $1.0
      */
     function _calculateFee(address _token, uint256 _amount) internal view returns (uint256) {
-        // 1. 计算基础百分比费用 (0.1%)
-        uint256 pFee = (_amount * FEE_BPS) / 10000;
+        // 1. 计算基础百分比费用
+        uint256 pFee = (_amount * feeBps) / 10000;
         
         // 2. 计算动态的最低和最高费用（Token 数量）
         uint256 minFee = _toTokenAmountForUsd(_token, USD_MIN_FEE);
@@ -455,21 +510,47 @@ contract SecureHandshakeUnlimitedInbox is
         treasury = _newTreasury;
     }
 
-    // 设置默认订单有效期
-    function setDefaultTTL(uint256 _ttl) external onlyOwner {
-        defaultTTL = _ttl;
+    // 设置最大待处理发件箱限制
+    function setMaxPendingOutbox(uint256 _limit) external onlyOwner {
+        require(_limit > 0, "Limit must be > 0");
+        maxPendingOutbox = _limit;
     }
 
-    // 任何人可调用的清理过期订单接口 (Trigger Expiry)
-    function expire(bytes32 _id) external nonReentrant {
-        TransferRecord memory t = activeTransfers[_id];
-        require(t.receiver != address(0), "Record not found");
-        require(block.timestamp > t.expiresAt, "Not expired"); // 必须真的过期了
-        
-        _fullCleanup(t.sender, t.receiver, _id);
-        _refund(t.token, t.sender, t.amount); // 资金退回给发送者
-        
-        emit TransferSettled(_id, "EXPIRED");
+    // 设置基础费率 (基点: 10 = 0.1%)
+    function setFeeBps(uint256 _bps) external onlyOwner {
+        require(_bps <= 1000, "Fee too high"); // 最高不超过 10%
+        feeBps = _bps;
+    }
+
+    // 管理员批量强制清理过期订单
+    // @param _ids 要检查的订单ID列表 (由于链上无法遍历所有订单，需由管理员链下筛选后传入)
+    function forceExpireBatch(bytes32[] calldata _ids) external onlyOwner {
+        for (uint256 i = 0; i < _ids.length; i++) {
+            bytes32 id = _ids[i];
+            TransferRecord memory t = activeTransfers[id];
+            
+            // 跳过无效或已处理的记录
+            if (t.receiver == address(0)) continue;
+            
+            // 计算费用
+            uint256 fee = _calculateFee(t.token, t.amount);
+            uint256 refundAmount = t.amount - fee;
+
+            _fullCleanup(t.sender, t.receiver, id);
+            
+            // 扣除手续费转给财库
+            if (fee > 0) {
+                if (t.token == NATIVE_TOKEN) {
+                    (bool success, ) = treasury.call{value: fee}("");
+                    require(success, "Native fee transfer failed");
+                } else {
+                    IERC20(t.token).safeTransfer(treasury, fee);
+                }
+            }
+
+            _refund(t.token, t.sender, refundAmount); // 扣除手续费后退回
+            emit TransferSettled(id, "EXPIRED");
+        }
     }
 
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { FaTimes, FaChevronRight } from 'react-icons/fa';
+import { useLanguage } from '../App';
 
 // Hook to discover EIP-6963 providers
 const useEIP6963 = () => {
@@ -69,7 +70,7 @@ const WALLETS = [
     icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/binance/info/logo.png',
     getProvider: () => window.BinanceChain,
     download: 'https://www.bnbchain.org/en/binance-wallet',
-    deepLink: 'bnc://app.binance.com/mp/aggr/page/ikmp/index?path=pages/home/index&dappUrl=https://ac121700354-code.github.io/SecureTransfer/' // 通用唤起，或使用 Trust Wallet 的 trust://
+    deepLink: 'bnc://app.binance.com/defi/wallet-connect?uri=https://ac121700354-code.github.io/SecureTransfer/' 
   },
   {
     id: 'bitget',
@@ -83,6 +84,7 @@ const WALLETS = [
 
 const WalletModal = ({ isOpen, onClose, onConnect }) => {
   const eip6963Providers = useEIP6963();
+  const { t } = useLanguage();
 
   // 简单的移动端检测
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -107,6 +109,9 @@ const WalletModal = ({ isOpen, onClose, onConnect }) => {
          url = `https://metamask.app.link/dapp/${window.location.host}`;
       } else if (wallet.id === 'okx') {
          url = `okx://wallet/dapp/details?dappUrl=${currentUrl}`;
+      } else if (wallet.id === 'binance') {
+         // 尝试使用 Binance 的 Web3 Wallet 唤起协议
+         url = `bnc://app.binance.com/defi/wallet-connect?uri=${currentUrl}`;
       } else if (wallet.id === 'bitget') {
          url = `https://bkcode.vip?action=dapp&url=${currentUrl}`;
       }
@@ -130,7 +135,7 @@ const WalletModal = ({ isOpen, onClose, onConnect }) => {
       <div className="relative w-full max-w-sm bg-[#1a1f2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-white/5">
-          <h3 className="text-lg font-bold text-white">Connect Wallet</h3>
+          <h3 className="text-lg font-bold text-white">{t.walletModalTitle}</h3>
           <button 
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
@@ -158,14 +163,14 @@ const WalletModal = ({ isOpen, onClose, onConnect }) => {
                       {wallet.name}
                     </div>
                     <div className="text-[10px] text-slate-500">
-                      {isInstalled ? 'Detected' : 'Not Installed'}
+                      {isInstalled ? t.detected : t.notInstalled}
                     </div>
                   </div>
                 </div>
                 {isInstalled ? (
                   <FaChevronRight className="text-slate-600 group-hover:text-blue-500 transition-colors text-xs" />
                 ) : (
-                  <span className="text-[10px] font-bold text-blue-500 bg-blue-500/10 px-2 py-1 rounded">INSTALL</span>
+                  <span className="text-[10px] font-bold text-blue-500 bg-blue-500/10 px-2 py-1 rounded">{t.install}</span>
                 )}
               </button>
             );
@@ -174,7 +179,7 @@ const WalletModal = ({ isOpen, onClose, onConnect }) => {
 
         <div className="p-5 border-t border-white/5 text-center">
           <p className="text-xs text-slate-500">
-            New to Ethereum? <a href="https://ethereum.org/en/wallets/" target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300">Learn more about wallets</a>
+            {t.newToEth} <a href="https://ethereum.org/en/wallets/" target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300">{t.learnMore}</a>
           </p>
         </div>
       </div>
