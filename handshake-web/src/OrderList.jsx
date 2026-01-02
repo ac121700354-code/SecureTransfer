@@ -4,17 +4,9 @@ import { FaInbox, FaSignOutAlt, FaSync, FaCheckCircle, FaTimesCircle, FaHourglas
 import config from './config.json';
 import { useToast } from './components/Toast';
 
-const CONTRACT_ADDRESS = config.contracts.EscrowProxy.address;
-const ABI = config.contracts.EscrowProxy.abi;
+// Note: CONTRACT_ADDRESS is now dynamic, we get it inside the component.
 
-const KNOWN_TOKENS = {
-  [ethers.ZeroAddress]: "BNB",
-  [config.contracts.BufferToken.address.toLowerCase()]: "BFR",
-  "0x337610d27c682e347c9cd60bd4b3b107c9d34ddd": "USDT",
-  "0x64544969ed7ebf5f083679233325356ebe738930": "USDC"
-};
-
-const OrderCard = ({ order, isOut, onAction, processingState }) => {
+const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensConfig }) => {
   const isThisProcessing = processingState?.id === order.id;
   const processingAction = isThisProcessing ? processingState.action : null;
 
@@ -29,45 +21,19 @@ const OrderCard = ({ order, isOut, onAction, processingState }) => {
 
   const getTokenName = (addr) => {
       if (!addr) return "Unknown";
-      const normalized = addr.toLowerCase();
-      if (KNOWN_TOKENS[normalized]) return KNOWN_TOKENS[normalized];
+      
+      // Fully rely on tokensConfig
+      if (tokensConfig) {
+          const token = tokensConfig.find(t => t.address === addr);
+          if (token) return token.symbol;
+      }
+
       return "Unknown";
   };
 
   const formatDate = (ts) => {
     if (!ts) return "--";
     return new Date(Number(ts) * 1000).toLocaleString();
-  };
-
-  const Countdown = ({ targetTimestamp }) => {
-    const [timeLeft, setTimeLeft] = useState("");
-    
-    useEffect(() => {
-      const update = () => {
-        const now = Math.floor(Date.now() / 1000);
-        const diff = Number(targetTimestamp) - now;
-        
-        if (diff <= 0) {
-          setTimeLeft("Expired");
-          return;
-        }
-        
-        const d = Math.floor(diff / 86400);
-        const h = Math.floor((diff % 86400) / 3600);
-        const m = Math.floor((diff % 3600) / 60);
-        const s = diff % 60;
-        
-        if (d > 0) setTimeLeft(`${d}d ${h}h`);
-        else if (h > 0) setTimeLeft(`${h}h ${m}m`);
-        else setTimeLeft(`${m}m ${s}s`);
-      };
-      
-      update();
-      const interval = setInterval(update, 1000);
-      return () => clearInterval(interval);
-    }, [targetTimestamp]);
-
-    return <span>{timeLeft}</span>;
   };
 
   return (
@@ -98,18 +64,11 @@ const OrderCard = ({ order, isOut, onAction, processingState }) => {
                </span>
                <span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-md uppercase tracking-wider">
                  {getTokenName(order.token)}
-               </span>
-
-               {Number(order.expiresAt) > 0 && (
-                 <div className="ml-auto flex flex-col items-end">
-                    <span className="text-[8px] text-slate-600 font-bold uppercase tracking-wider">Expires In</span>
-                    <span className="text-[9px] text-slate-500 font-mono"><Countdown targetTimestamp={order.expiresAt} /></span>
-                 </div>
-               )}
-             </div>
-          </div>
-        </div>
-      </div>
+              </span>
+            </div>
+         </div>
+       </div>
+     </div>
 
       {/* Actions */}
       {isOut && (
@@ -134,29 +93,33 @@ const OrderCard = ({ order, isOut, onAction, processingState }) => {
   );
 };
 
-export default function OrderList({ account, refreshTrigger, onActionSuccess, onStatsUpdate }) {
+export default function OrderList({ account, provider: walletProvider, refreshTrigger, onActionSuccess, onStatsUpdate, activeConfig, chainId }) {
   const toast = useToast();
+  
+  // Note: activeConfig is now passed from App.jsx
+
+  const contracts = activeConfig?.contracts;
+
   const [inbox, setInbox] = useState([]);
   const [outbox, setOutbox] = useState([]);
-  const [activeTab, setActiveTab] = useState("inbox"); 
   const [isInitialLoading, setIsInitialLoading] = useState(false);
   const [processingState, setProcessingState] = useState(null);
 
   // --- 核心：安全的数据清洗逻辑 ---
   const fetchOrders = useCallback(async () => {
-    if (!account || !window.ethereum) return;
-    // 注意：这里不再设置 setIsInitialLoading(true)
-    // Loading 状态完全由 useEffect 控制，确保刷新操作静默进行
+    if (!account || !contracts || !activeConfig?.rpcUrl) return;
     
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+      // Use JsonRpcProvider to view data from the selected network, regardless of wallet state
+      const provider = new ethers.JsonRpcProvider(activeConfig.rpcUrl);
+      const contract = new ethers.Contract(contracts.EscrowProxy.address, contracts.EscrowProxy.abi, provider);
 
       // 1. 获取 IDs
       const [inIds, outIds] = await Promise.all([
         contract.getInboxIds(account).catch(() => []),
         contract.getOutboxIds(account).catch(() => [])
       ]);
+
 
       // 2. 辅助函数：批量获取详情
       const fetchDetails = async (ids) => {
@@ -195,28 +158,26 @@ export default function OrderList({ account, refreshTrigger, onActionSuccess, on
     } finally {
       setIsInitialLoading(false);
     }
-  }, [account]);
+  }, [account, contracts, onStatsUpdate]);
 
   // 1. 初始化或账户变化时：拉取数据
-  // 仅当列表完全为空时才显示 Loading，防止闪烁
+  // 强制显示 Loading
   useEffect(() => {
-    if (account) {
-      if (inbox.length === 0 && outbox.length === 0) {
-         setIsInitialLoading(true);
-      }
-      fetchOrders().finally(() => setIsInitialLoading(false));
+    if (account && contracts) {
+       // 无论列表是否为空，只要账户或合约变化，就视为初始化加载，清空并显示 Loading
+       setInbox([]);
+       setOutbox([]);
+       setIsInitialLoading(true);
+       fetchOrders().finally(() => setIsInitialLoading(false));
+
+       // Setup polling interval (60 seconds)
+       const intervalId = setInterval(() => {
+         fetchOrders(); // Silent update
+       }, 60000);
+
+       return () => clearInterval(intervalId);
     }
-  }, [account, fetchOrders]); // 注意：这里不应该依赖 inbox/outbox，否则会死循环。但因为我们只在 mount/account change 时触发，所以没问题。
-
-  // 等等，fetchOrders 是依赖 account 的。
-  // 但是 useEffect 闭包里读不到最新的 inbox/outbox 吗？
-  // 不，useEffect 的依赖数组决定了它何时运行。
-  // 如果我们想在 fetchOrders 运行时判断，应该在 fetchOrders 内部判断，或者使用 ref。
-  
-  // 更好的做法：
-  // 移除 useEffect 中的 setIsInitialLoading(true)
-  // 改为在 fetchOrders 内部判断：如果数据为空，则 set(true)
-
+  }, [account, fetchOrders, contracts]); 
 
   // 2. 收到刷新信号时：静默更新（绝不显示 Loading）
   useEffect(() => {
@@ -231,19 +192,51 @@ export default function OrderList({ account, refreshTrigger, onActionSuccess, on
         });
     } else {
         // 数字信号：静默拉取
-        fetchOrders(); 
+        // 注意：如果是网络切换导致的刷新（refreshTrigger 变化且 inbox/outbox 可能为空），
+        // 也可以选择在这里设置 loading，但为了体验平滑，我们保持静默更新，
+        // 除非列表为空（上面的 useEffect 会处理）
+        if (contracts) {
+          fetchOrders(); 
+        }
     }
-  }, [refreshTrigger, fetchOrders]);
+  }, [refreshTrigger, fetchOrders, contracts]);
+
+  // 监听 activeConfig 变化（网络切换），强制显示 Loading
+  useEffect(() => {
+    // 即使 activeConfig 暂时为空（例如不支持的网络），也应该清空数据
+    // 只要 activeConfig 发生变化，就意味着环境变了，旧数据必须清除
+    setInbox([]);
+    setOutbox([]);
+    
+    if (activeConfig) {
+       setIsInitialLoading(true);
+       fetchOrders().finally(() => setIsInitialLoading(false));
+    } else {
+        // 如果不支持该网络，直接停止 Loading（显示空状态）
+        setIsInitialLoading(false);
+    }
+  }, [activeConfig, fetchOrders]);
 
   // --- 核心：安全的操作处理逻辑 ---
   const handleAction = async (id, method) => {
-    if (processingState) return; // 防止双重点击
+    if (processingState || !contracts) return; // 防止双重点击
     setProcessingState({ id, action: method });
     
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new ethers.BrowserProvider(walletProvider || window.ethereum);
+      
+      // Ensure wallet is on the selected network
+      const network = await provider.getNetwork();
+      if (Number(network.chainId) !== chainId) {
+          try {
+              await provider.send("wallet_switchEthereumChain", [{ chainId: "0x" + chainId.toString(16) }]);
+          } catch (e) {
+              throw new Error("Please switch to the correct network to proceed.");
+          }
+      }
+
       const signer = await provider.getSigner();
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+      const contract = new ethers.Contract(contracts.EscrowProxy.address, contracts.EscrowProxy.abi, signer);
       
       const currentSigner = await signer.getAddress();
       console.log(`Action: ${method} by ${currentSigner}`);
@@ -276,7 +269,7 @@ export default function OrderList({ account, refreshTrigger, onActionSuccess, on
     <div className="bg-slate-900/20 rounded-[2.5rem] border border-white/5 overflow-hidden h-[550px] flex flex-col">
       <div className="p-6 border-b border-white/5 flex justify-between items-center shrink-0 bg-slate-800/20">
         <h3 className="text-white font-bold text-lg flex items-center gap-2">
-           <FaInbox className="text-blue-500" /> Transaction History
+           <FaInbox className="text-blue-500" /> Current Transaction
         </h3>
       </div>
 
@@ -309,6 +302,8 @@ export default function OrderList({ account, refreshTrigger, onActionSuccess, on
                     isOut={false} 
                     onAction={handleAction}
                     processingState={processingState}
+                    contracts={contracts}
+                    tokensConfig={activeConfig?.tokens}
                   />
                 ))
               )}
@@ -336,6 +331,8 @@ export default function OrderList({ account, refreshTrigger, onActionSuccess, on
                     isOut={true} 
                     onAction={handleAction}
                     processingState={processingState}
+                    contracts={contracts}
+                    tokensConfig={activeConfig?.tokens}
                   />
                 ))
               )}

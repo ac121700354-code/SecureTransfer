@@ -1,35 +1,66 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ethers } from 'ethers';
 import { FaPaperPlane, FaWallet, FaCheckCircle, FaExclamationTriangle, FaChevronDown, FaLayerGroup, FaCoins, FaDollarSign, FaQuestionCircle, FaSync } from 'react-icons/fa';
 import config from './config.json';
 import { useToast } from './components/Toast';
 
-const NATIVE_TOKEN = ethers.ZeroAddress;
-const MAX_ACTIVE_TRANSFERS = 10;
-
-const TOKENS = [
-  { symbol: "BNB", name: "BNB", address: NATIVE_TOKEN, logo: "https://cryptologos.cc/logos/bnb-bnb-logo.svg?v=035" },
-  { symbol: "BFR", name: "Buffer Token", address: config.contracts.BufferToken.address, logo: "/tokens/bfr-logo.svg?v=12" },
-  { symbol: "USDT", name: "Tether USD", address: "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd", logo: "https://cryptologos.cc/logos/tether-usdt-logo.svg?v=035" },
-  { symbol: "USDC", name: "USD Coin", address: "0x64544969ed7EBf5f083679233325356EbE738930", logo: "https://cryptologos.cc/logos/usd-coin-usdc-logo.svg?v=035" }
-];
-
-export default function InitiateTransfer({ account, onTransactionSuccess, refreshBalanceTrigger, activeCount = 0 }) {
+const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSuccess, refreshBalanceTrigger, activeCount = 0, activeConfig, chainId }) => {
   const toast = useToast();
+  
+  // Note: activeConfig and chainId are now passed from App.jsx
+
+  const contracts = activeConfig?.contracts;
+  
+  const NATIVE_TOKEN = ethers.ZeroAddress;
+  const MAX_ACTIVE_TRANSFERS = 10;
+
+  const tokensConfig = activeConfig?.tokens || [];
+  
+  const TOKENS = tokensConfig.map(t => {
+      return { 
+          symbol: t.symbol, 
+          name: t.name, 
+          address: t.address || "", 
+          logo: t.logo 
+      };
+  });
+
   const [receiver, setReceiver] = useState("");
   const [amount, setAmount] = useState("");
   const [selectedToken, setSelectedToken] = useState(TOKENS[0]);
   const [customTokenAddress, setCustomTokenAddress] = useState("");
   const [isTokenOpen, setIsTokenOpen] = useState(false);
-  // const [step, setStep] = useState(0); // 移除 step 状态
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [balance, setBalance] = useState("0");
   const [isBalanceLoading, setIsBalanceLoading] = useState(false);
+  
+  const tokenDropdownRef = useRef(null);
+
+  // 点击外部关闭代币下拉框
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (tokenDropdownRef.current && !tokenDropdownRef.current.contains(event.target)) {
+        setIsTokenOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // 当网络切换时，重置选中的代币为列表第一个
+  useEffect(() => {
+    if (TOKENS.length > 0) {
+      setSelectedToken(TOKENS[0]);
+    }
+  }, [activeConfig]);
 
   // 获取余额逻辑
   useEffect(() => {
-    if (!account) {
+    if (!account || !contracts) {
         setBalance("0");
         return;
     }
@@ -37,7 +68,9 @@ export default function InitiateTransfer({ account, onTransactionSuccess, refres
     const fetchBalance = async () => {
         setIsBalanceLoading(true);
         try {
-            const provider = new ethers.BrowserProvider(window.ethereum);
+            if (!activeConfig?.rpcUrl) return;
+            // Use RPC Provider for viewing balance regardless of wallet state
+            const provider = new ethers.JsonRpcProvider(activeConfig.rpcUrl);
             let bal;
             const tokenAddress = selectedToken.address || customTokenAddress;
             
@@ -68,7 +101,7 @@ export default function InitiateTransfer({ account, onTransactionSuccess, refres
     };
 
     fetchBalance();
-  }, [account, selectedToken, customTokenAddress, refreshBalanceTrigger]);
+  }, [account, selectedToken, customTokenAddress, refreshBalanceTrigger, contracts]);
 
   // --- 表单验证逻辑 ---
   const isAddressValid = ethers.isAddress(receiver);
@@ -99,27 +132,43 @@ export default function InitiateTransfer({ account, onTransactionSuccess, refres
       return;
     }
 
-    // if (activeCount >= MAX_ACTIVE_TRANSFERS) {
-    //   setError(`达到最大待处理交易限制 (${MAX_ACTIVE_TRANSFERS})。请先处理现有交易。`);
-    //   return;
-    // }
+    if (!contracts) {
+      setError("不支持该网络，请切换到 BNB Testnet");
+      return;
+    }
+
+    if (activeCount >= MAX_ACTIVE_TRANSFERS) {
+      setError(`达到最大待处理交易限制 (${MAX_ACTIVE_TRANSFERS})。请先处理现有交易。`);
+      return;
+    }
     
     // 直接开始交易流程
     setLoading(true);
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new ethers.BrowserProvider(walletProvider || window.ethereum);
+      
+      // Check and switch network if needed
+      const network = await provider.getNetwork();
+      if (Number(network.chainId) !== chainId) {
+          try {
+             await provider.send("wallet_switchEthereumChain", [{ chainId: "0x" + chainId.toString(16) }]);
+          } catch (e) {
+             throw new Error("Please switch to the correct network to proceed.");
+          }
+      }
+
       const signer = await provider.getSigner();
       
-      const escrowContract = new ethers.Contract(config.contracts.EscrowProxy.address, config.contracts.EscrowProxy.abi, signer);
+      const escrowContract = new ethers.Contract(contracts.EscrowProxy.address, contracts.EscrowProxy.abi, signer);
       
-      const tokenAddress = selectedToken.address || customTokenAddress;
+      const tokenAddress = ethers.getAddress(selectedToken.address || customTokenAddress);
       const isNative = tokenAddress === NATIVE_TOKEN;
       const decimals = 18; // Assuming 18 for now, can be dynamic in future
 
       const weiAmount = ethers.parseUnits(amount, decimals);
 
       if (!isNative) {
-        const tokenContract = new ethers.Contract(tokenAddress, config.contracts.BufferToken.abi, signer);
+        const tokenContract = new ethers.Contract(tokenAddress, contracts.BufferToken.abi, signer);
         
         // 0. 预检查：余额是否充足
         if (parseFloat(amount) > parseFloat(balance)) {
@@ -129,10 +178,10 @@ export default function InitiateTransfer({ account, onTransactionSuccess, refres
         }
 
         // 1. 检查并授权
-        const allowance = await tokenContract.allowance(account, config.contracts.EscrowProxy.address);
+        const allowance = await tokenContract.allowance(account, contracts.EscrowProxy.address);
         if (allowance < weiAmount) {
           // 如果授权不足，请求授权
-          const approveTx = await tokenContract.approve(config.contracts.EscrowProxy.address, ethers.MaxUint256);
+          const approveTx = await tokenContract.approve(contracts.EscrowProxy.address, ethers.MaxUint256);
           await approveTx.wait();
         }
       } else {
@@ -158,14 +207,13 @@ export default function InitiateTransfer({ account, onTransactionSuccess, refres
       let newOrder = null;
       try {
         // 创建 Interface 实例来解析日志
-        // 注意：这里假设 abi 包含 TransferInitiated 事件
-        const iface = new ethers.Interface(config.contracts.EscrowProxy.abi);
+        const iface = new ethers.Interface(contracts.EscrowProxy.abi);
         
         // 遍历日志找到 TransferInitiated
         for (const log of receipt.logs) {
           try {
             // 只尝试解析来自 Escrow 合约的日志
-            if (log.address.toLowerCase() === config.contracts.EscrowProxy.address.toLowerCase()) {
+            if (log.address.toLowerCase() === contracts.EscrowProxy.address.toLowerCase()) {
                 const parsed = iface.parseLog(log);
                 if (parsed && parsed.name === 'TransferInitiated') {
                   newOrder = {
@@ -190,7 +238,7 @@ export default function InitiateTransfer({ account, onTransactionSuccess, refres
       
       // setStep(0);  // 移除
       setAmount(""); 
-      setReceiver("");
+      // setReceiver(""); // Keep receiver address for convenience
       
       if (onTransactionSuccess) {
         // 传递 newOrder 对象给父组件
@@ -221,16 +269,16 @@ export default function InitiateTransfer({ account, onTransactionSuccess, refres
   };
 
   return (
-    <div className="bg-slate-800/40 backdrop-blur-md border border-white/5 p-8 rounded-[2rem] shadow-xl h-[550px] flex flex-col">
+    <div className="bg-slate-800/40 backdrop-blur-md border border-white/5 p-4 md:p-8 rounded-[2rem] shadow-xl h-auto md:h-[550px] flex flex-col">
       <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2 shrink-0">
         <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
-        New Transaction
+        Initiate Transfer
       </h2>
       
-      <div className="space-y-6 flex-1 overflow-y-auto custom-scrollbar pr-2">
+      <div className="space-y-6 flex-1 overflow-y-auto custom-scrollbar pr-0 md:pr-2">
             <div className="space-y-2">
               <label className="text-xs text-slate-400 font-bold uppercase tracking-wider ml-1">Asset Type</label>
-              <div className="relative">
+              <div className="relative" ref={tokenDropdownRef}>
                 <button 
                   onClick={() => setIsTokenOpen(!isTokenOpen)}
                   className="w-full bg-slate-900/50 border border-white/5 p-4 rounded-xl flex items-center justify-between text-white hover:bg-slate-800/50 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/20"
@@ -342,8 +390,6 @@ export default function InitiateTransfer({ account, onTransactionSuccess, refres
           >
             {loading ? (
               <span className="flex items-center gap-2 animate-pulse"><FaPaperPlane /> Processing...</span>
-            ) : !account ? (
-              "Connect Wallet First"
             ) : isLimitReached ? (
               `Limit Reached (${activeCount}/${MAX_ACTIVE_TRANSFERS})`
             ) : (
@@ -355,3 +401,4 @@ export default function InitiateTransfer({ account, onTransactionSuccess, refres
     </div>
   );
 }
+export default InitiateTransfer;
