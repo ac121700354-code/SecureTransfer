@@ -2,14 +2,14 @@ const hre = require("hardhat");
 const config = require("../handshake-web/src/config.json");
 
 async function main() {
-  console.log("Setting up BFR token support on BNB Testnet...");
+  console.log("Setting up STP token support on BNB Testnet...");
 
   const EscrowAddress = config.contracts.EscrowProxy.address;
-  const BFRAddress = config.contracts.BufferToken.address;
+  const STPAddress = config.contracts.BufferToken.address;
   const MockFeedAddress = config.contracts.MockAggregator.address;
 
   console.log(`Escrow: ${EscrowAddress}`);
-  console.log(`BFR Token: ${BFRAddress}`);
+  console.log(`STP Token: ${STPAddress}`);
   console.log(`Price Feed: ${MockFeedAddress}`);
 
   // Get signer
@@ -20,21 +20,21 @@ async function main() {
   const Escrow = await hre.ethers.getContractAt("SecureHandshakeUnlimitedInbox", EscrowAddress);
 
   // Check current feed
-  const currentFeed = await Escrow.tokenPriceFeeds(BFRAddress);
-  console.log(`Current feed for BFR: ${currentFeed}`);
+  const currentFeed = await Escrow.tokenPriceFeeds(STPAddress);
+  console.log(`Current feed for STP: ${currentFeed}`);
 
   if (currentFeed.toLowerCase() === MockFeedAddress.toLowerCase()) {
-    console.log("✅ BFR already configured correctly. No action needed.");
+    console.log("✅ STP already configured correctly. No action needed.");
     return;
   }
 
   // Set feed
   console.log("🚀 Calling setTokenPriceFeed...");
-  const tx = await Escrow.setTokenPriceFeed(BFRAddress, MockFeedAddress);
+  const tx = await Escrow.setTokenPriceFeed(STPAddress, MockFeedAddress);
   console.log(`Transaction sent: ${tx.hash}`);
   
   await tx.wait();
-  console.log("✅ Transaction confirmed! BFR support enabled.");
+  console.log("✅ Transaction confirmed! STP support enabled.");
 }
 
 main().catch((error) => {

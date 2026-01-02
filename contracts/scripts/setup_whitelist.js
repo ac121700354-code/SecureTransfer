@@ -11,7 +11,7 @@ const MOCK_FEED_ADDRESS = deployment.contracts.MockAggregator;
 // Tokens Configuration
 const TOKENS = [
     { symbol: "BNB", address: ethers.ZeroAddress }, // Native
-    { symbol: "BFR", address: deployment.contracts.BufferToken },
+    { symbol: "STP", address: deployment.contracts.BufferToken },
     { symbol: "USDT", address: "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd" },
     { symbol: "USDC", address: "0x64544969ed7EBf5f083679233325356EbE738930" },
     { symbol: "BTC", address: "0x6ce8dA28E2f864420840cF74474eFf5fD80E65B8" },

@@ -10,9 +10,9 @@ const RPC_URL = process.env.RPC_URL || "https://data-seed-prebsc-1-s1.binance.or
 const ROUTER_ADDRESS = "0xD99D1c33F9fC3444f8101754aBC46c52416550D1";
 
 // Liquidity Settings
-const TOKEN_AMOUNT = ethers.parseEther("1000"); // Add 1000 BFR
+const TOKEN_AMOUNT = ethers.parseEther("1000"); // Add 1000 STP
 const BNB_AMOUNT = ethers.parseEther("0.1");    // Add 0.1 BNB
-// This sets initial price: 1 BNB = 10,000 BFR
+// This sets initial price: 1 BNB = 10,000 STP
 
 async function main() {
     console.log("Starting Liquidity Provision Script...");
@@ -23,7 +23,7 @@ async function main() {
     console.log(`Connected with: ${wallet.address}`);
 
     const bufferTokenAddress = deployment.contracts.BufferToken;
-    console.log(`BFR Token Address: ${bufferTokenAddress}`);
+    console.log(`STP Token Address: ${bufferTokenAddress}`);
 
     // 1. Get Token Contract
     const Token = await ethers.getContractFactory("BufferToken");
@@ -31,9 +31,9 @@ async function main() {
 
     // Check Balance
     const balance = await token.balanceOf(wallet.address);
-    console.log(`Wallet BFR Balance: ${ethers.formatEther(balance)}`);
+    console.log(`Wallet STP Balance: ${ethers.formatEther(balance)}`);
     if (balance < TOKEN_AMOUNT) {
-        console.error("Insufficient BFR balance to add liquidity!");
+        console.error("Insufficient STP balance to add liquidity!");
         return;
     }
 
@@ -50,7 +50,7 @@ async function main() {
     }
 
     // 3. Add Liquidity
-    console.log("\n2. Adding Liquidity (BFR + BNB)...");
+    console.log("\n2. Adding Liquidity (STP + BNB)...");
     
     // We need the Router Interface
     const routerAbi = [
@@ -73,7 +73,7 @@ async function main() {
         console.log(`Add Liquidity tx sent: ${tx.hash}`);
         await tx.wait();
         console.log("Liquidity Pool Created/Added Successfully!");
-        console.log(`Added: ${ethers.formatEther(TOKEN_AMOUNT)} BFR + ${ethers.formatEther(BNB_AMOUNT)} BNB`);
+        console.log(`Added: ${ethers.formatEther(TOKEN_AMOUNT)} STP + ${ethers.formatEther(BNB_AMOUNT)} BNB`);
     } catch (error) {
         console.error("Failed to add liquidity:", error.message);
         if (error.message.includes("TRANSFER_FROM_FAILED")) {

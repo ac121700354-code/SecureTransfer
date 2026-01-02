@@ -92,7 +92,7 @@ export const WhitepaperContentZh = () => (
             step="1"
             icon={FaLock}
             title="锁定 (Lock)"
-            desc="发送方将资金发送至智能合约进行锁定，资金不再由发送方控制，但尚未到达接收方。"
+            desc="付款方发起转账，资金进入智能合约锁定。此时资金安全托管，尚未到达收款方账户。"
          />
          <div className="hidden md:flex items-center text-slate-600">
             <FaExchangeAlt />
@@ -100,8 +100,8 @@ export const WhitepaperContentZh = () => (
          <ProcessCard 
             step="2"
             icon={FaBell}
-            title="确认 (Confirm)"
-            desc="收款方在前端可见待接收交易，核对金额与来源无误后，进行“确认接收”操作。"
+            title="核对 (Verify)"
+            desc="收款方在平台查询订单。若能查到，通知付款方无异常；若查不到，通知付款方异常。"
          />
          <div className="hidden md:flex items-center text-slate-600">
             <FaExchangeAlt />
@@ -110,7 +110,7 @@ export const WhitepaperContentZh = () => (
             step="3"
             icon={FaCheckCircle}
             title="执行 (Execute)"
-            desc="资金划转至收款方。在此期间，发送方拥有“后悔权”，可随时撤回资金。"
+            desc="若无异常，付款方操作“放款”，资金即刻到账；若有异常，付款方操作“撤回”，资金原路退回。"
          />
       </div>
 
@@ -125,31 +125,21 @@ export const WhitepaperContentZh = () => (
     <section>
       <SectionTitle number="04" title="经济模型" />
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl border border-white/5 text-center relative overflow-hidden group">
+      <h4 className="font-bold text-white mt-4 mb-2">4.1 协议服务费</h4>
+      <p className="mb-4">协议将对每笔成功完成的安全转账收取微量服务费（如 0.1% 或固定金额），用于：</p>
+      <div className="mb-6">
+        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-8 rounded-2xl border border-white/5 text-center relative overflow-hidden group max-w-md mx-auto shadow-2xl shadow-emerald-500/10">
           <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
-          <div className="text-3xl font-bold text-white mb-1 group-hover:scale-110 transition-transform">50%</div>
-          <div className="text-[10px] text-emerald-400 uppercase tracking-widest font-bold mb-2">回购销毁</div>
-          <p className="text-xs text-slate-500">协议收入用于购买并销毁 STP，制造通缩</p>
-        </div>
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl border border-white/5 text-center relative overflow-hidden group">
-          <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500"></div>
-          <div className="text-3xl font-bold text-white mb-1 group-hover:scale-110 transition-transform">30%</div>
-          <div className="text-[10px] text-indigo-400 uppercase tracking-widest font-bold mb-2">国库储备</div>
-          <p className="text-xs text-slate-500">存入 DAO 国库，用于长期开发建设</p>
-        </div>
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl border border-white/5 text-center relative overflow-hidden group">
-          <div className="absolute top-0 left-0 w-full h-1 bg-amber-500"></div>
-          <div className="text-3xl font-bold text-white mb-1 group-hover:scale-110 transition-transform">20%</div>
-          <div className="text-[10px] text-amber-400 uppercase tracking-widest font-bold mb-2">节点激励</div>
-          <p className="text-xs text-slate-500">奖励给维护网络安全的验证者</p>
+          <div className="text-5xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">100%</div>
+          <div className="text-sm text-emerald-400 uppercase tracking-[0.2em] font-bold mb-3">回购销毁</div>
+          <p className="text-sm text-slate-400 leading-relaxed">协议所有收入将全部用于在二级市场购买协议代币 (STP) 并进行永久销毁，实现极致通缩。</p>
         </div>
       </div>
 
       <div className="bg-slate-900/50 rounded-2xl p-6 border border-white/5">
         <div className="flex justify-between items-end mb-6">
             <h4 className="font-bold text-white">代币分配 (STP)</h4>
-            <span className="text-xs text-slate-500 font-mono">Total Supply: 100,000,000</span>
+            <span className="text-xs text-slate-500 font-mono">代币总量：100,000,000 (1亿)</span>
         </div>
         <div className="space-y-5">
             <TokenBar label="社区空投与激励" percent="45%" width="45%" colorClass="bg-gradient-to-r from-blue-600 to-blue-400" />
@@ -163,10 +153,9 @@ export const WhitepaperContentZh = () => (
 
     <section>
       <SectionTitle number="05" title="应用场景" />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
             { title: "大额 OTC 交易", desc: "陌生人之间的点对点大额交易，无需信任第三方担保。" },
-            { title: "电商购物", desc: "买家确认收货后再放款，卖家看到资金锁定再发货。" },
             { title: "企业薪资发放", desc: "防止财务发错地址，提供二次确认机会。" },
             { title: "防误操作保护", desc: "为日常转账多加一层“撤回”保险，安心无忧。" }
         ].map((item, i) => (
@@ -182,10 +171,10 @@ export const WhitepaperContentZh = () => (
       <SectionTitle number="06" title="路线图" />
       <div className="relative ml-3 pl-8 py-2 space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-gradient-to-b before:from-blue-500 before:via-slate-700 before:to-slate-800">
         {[
-            { time: "Q1 2025", title: "起步", desc: "发布白皮书，上线测试网，启动社区空投活动。", active: true },
-            { time: "Q2 2025", title: "主网", desc: "主网上线（支持ETH, BNB, Polygon），开启交易挖矿。", active: false },
-            { time: "Q3 2025", title: "生态", desc: "推出多签安全账户功能，发布移动端App。", active: false },
-            { time: "Q4 2025", title: "治理", desc: "启动DAO治理，通过社区投票调整协议参数。", active: false }
+            { time: "Q1 2026", title: "起步", desc: "发布白皮书，上线测试网，启动社区空投活动。", active: true },
+            { time: "Q2 2026", title: "主网", desc: "主网上线（支持ETH, BNB），STP开启交易。", active: false },
+            { time: "Q3 2026", title: "生态", desc: "推出多签安全账户功能，发布移动端App。", active: false },
+            { time: "Q4 2026", title: "治理", desc: "启动DAO治理，通过社区投票调整协议参数。", active: false }
         ].map((item, i) => (
             <div key={i} className="relative group">
                 <div className={`absolute -left-[39px] w-6 h-6 rounded-full border-4 border-slate-900 ${item.active ? 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'bg-slate-700'} transition-colors`}></div>
@@ -246,7 +235,7 @@ export const WhitepaperContentEn = () => (
             step="1"
             icon={FaLock}
             title="Lock"
-            desc="Sender sends funds to smart contract. Funds are locked and no longer controlled by sender."
+            desc="Payer initiates transfer, funds are locked in smart contract. Funds are secured and haven't reached Payee yet."
          />
          <div className="hidden md:flex items-center text-slate-600">
             <FaExchangeAlt />
@@ -254,8 +243,8 @@ export const WhitepaperContentEn = () => (
          <ProcessCard 
             step="2"
             icon={FaBell}
-            title="Confirm"
-            desc="Receiver verifies transaction details on frontend and clicks 'Confirm Receive'."
+            title="Verify"
+            desc="Payee queries the order. If found, Payee notifies Payer 'All Good'; if not found, Payee notifies 'Abnormal'."
          />
          <div className="hidden md:flex items-center text-slate-600">
             <FaExchangeAlt />
@@ -264,7 +253,7 @@ export const WhitepaperContentEn = () => (
             step="3"
             icon={FaCheckCircle}
             title="Execute"
-            desc="Funds transferred to receiver. Sender has 'Regret Rights' to withdraw before confirmation."
+            desc="If verified, Payer clicks 'Release' to transfer funds; if abnormal, Payer clicks 'Withdraw' to retrieve funds."
          />
       </div>
 
@@ -279,24 +268,14 @@ export const WhitepaperContentEn = () => (
     <section>
       <SectionTitle number="04" title="Tokenomics" />
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl border border-white/5 text-center relative overflow-hidden group">
+      <h4 className="font-bold text-white mt-4 mb-2">4.1 Protocol Fees</h4>
+      <p className="mb-4">The protocol charges a small fee (e.g. 0.1%) on every successful secured transfer, which is used for:</p>
+      <div className="mb-6">
+        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-8 rounded-2xl border border-white/5 text-center relative overflow-hidden group max-w-md mx-auto shadow-2xl shadow-emerald-500/10">
           <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
-          <div className="text-3xl font-bold text-white mb-1 group-hover:scale-110 transition-transform">50%</div>
-          <div className="text-[10px] text-emerald-400 uppercase tracking-widest font-bold mb-2">Burn</div>
-          <p className="text-xs text-slate-500">Revenue used to buyback and burn STP</p>
-        </div>
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl border border-white/5 text-center relative overflow-hidden group">
-          <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500"></div>
-          <div className="text-3xl font-bold text-white mb-1 group-hover:scale-110 transition-transform">30%</div>
-          <div className="text-[10px] text-indigo-400 uppercase tracking-widest font-bold mb-2">Treasury</div>
-          <p className="text-xs text-slate-500">Deposited into DAO treasury for development</p>
-        </div>
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl border border-white/5 text-center relative overflow-hidden group">
-          <div className="absolute top-0 left-0 w-full h-1 bg-amber-500"></div>
-          <div className="text-3xl font-bold text-white mb-1 group-hover:scale-110 transition-transform">20%</div>
-          <div className="text-[10px] text-amber-400 uppercase tracking-widest font-bold mb-2">Incentives</div>
-          <p className="text-xs text-slate-500">Rewards for network validators</p>
+          <div className="text-5xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">100%</div>
+          <div className="text-sm text-emerald-400 uppercase tracking-[0.2em] font-bold mb-3">Buyback & Burn</div>
+          <p className="text-sm text-slate-400 leading-relaxed">All protocol revenue is used to buy back STP tokens from the secondary market and permanently burn them, achieving ultimate deflation.</p>
         </div>
       </div>
 
@@ -317,10 +296,9 @@ export const WhitepaperContentEn = () => (
 
     <section>
       <SectionTitle number="05" title="Use Cases" />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
             { title: "Large OTC Trades", desc: "P2P large transfers between strangers without trusted third parties." },
-            { title: "E-commerce", desc: "Buyers release funds after confirmation; Sellers ship after seeing locked funds." },
             { title: "Payroll", desc: "Prevent sending salaries to wrong addresses with a second confirmation." },
             { title: "Anti-Error Protection", desc: "An extra 'Undo' layer for daily transfers." }
         ].map((item, i) => (
@@ -336,10 +314,10 @@ export const WhitepaperContentEn = () => (
       <SectionTitle number="06" title="Roadmap" />
       <div className="relative ml-3 pl-8 py-2 space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-gradient-to-b before:from-blue-500 before:via-slate-700 before:to-slate-800">
         {[
-            { time: "Q1 2025", title: "Inception", desc: "Whitepaper Release, Testnet Launch, Community Airdrop.", active: true },
-            { time: "Q2 2025", title: "Mainnet", desc: "Mainnet Launch (ETH, BNB, Polygon), Trade Mining.", active: false },
-            { time: "Q3 2025", title: "Ecosystem", desc: "Multi-sig Secure Accounts, Mobile App Release.", active: false },
-            { time: "Q4 2025", title: "Governance", desc: "DAO Governance Launch, Community Voting.", active: false }
+            { time: "Q1 2026", title: "Inception", desc: "Whitepaper Release, Testnet Launch, Community Airdrop.", active: true },
+            { time: "Q2 2026", title: "Mainnet", desc: "Mainnet Launch (ETH, BNB), Trade Mining.", active: false },
+            { time: "Q3 2026", title: "Ecosystem", desc: "Multi-sig Secure Accounts, Mobile App Release.", active: false },
+            { time: "Q4 2026", title: "Governance", desc: "DAO Governance Launch, Community Voting.", active: false }
         ].map((item, i) => (
             <div key={i} className="relative group">
                 <div className={`absolute -left-[39px] w-6 h-6 rounded-full border-4 border-slate-900 ${item.active ? 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'bg-slate-700'} transition-colors`}></div>

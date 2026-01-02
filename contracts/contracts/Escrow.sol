@@ -73,8 +73,8 @@ contract SecureHandshakeUnlimitedInbox is
     uint256 public feeBps; // 基础费率 (基点: 10 = 0.1%)
 
     // 事件定义
-    event TransferInitiated(bytes32 indexed id, address indexed sender, address indexed receiver, uint256 amount);
-    event TransferSettled(bytes32 indexed id, string action);
+    event TransferInitiated(bytes32 indexed id, address indexed sender, address indexed receiver, address token, uint256 amount);
+    event TransferSettled(bytes32 indexed id, address indexed sender, address indexed receiver, address token, uint256 amount, string action);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -188,7 +188,7 @@ contract SecureHandshakeUnlimitedInbox is
         _addToOutbox(msg.sender, id);
 
         // 9. 抛出事件
-        emit TransferInitiated(id, msg.sender, _receiver, _amount);
+        emit TransferInitiated(id, msg.sender, _receiver, _token, _amount);
         return id;
     }
 
@@ -260,7 +260,7 @@ contract SecureHandshakeUnlimitedInbox is
             IERC20(t.token).safeTransfer(t.receiver, finalAmount);
         }
 
-        emit TransferSettled(_id, "RELEASED");
+        emit TransferSettled(_id, t.sender, t.receiver, t.token, t.amount, "RELEASED");
     }
 
     /**
@@ -294,7 +294,7 @@ contract SecureHandshakeUnlimitedInbox is
         // 6. 退款：剩余资金退回给发送方
         _refund(t.token, t.sender, refundAmount);
         
-        emit TransferSettled(_id, "CANCELLED");
+        emit TransferSettled(_id, t.sender, t.receiver, t.token, t.amount, "CANCELLED");
     }
 
     // 暂停协议（紧急情况）
@@ -549,7 +549,7 @@ contract SecureHandshakeUnlimitedInbox is
             }
 
             _refund(t.token, t.sender, refundAmount); // 扣除手续费后退回
-            emit TransferSettled(id, "EXPIRED");
+            emit TransferSettled(id, t.sender, t.receiver, t.token, t.amount, "EXPIRED");
         }
     }
 

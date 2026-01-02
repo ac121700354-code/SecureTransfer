@@ -8,14 +8,14 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 
 /**
- * @title Buffer Protocol Token (BFR)
+ * @title Buffer Protocol Token (STP)
  * @notice 协议原生代币，总量固定 1 亿，支持销毁，增发权限受控，支持治理投票 (ERC20Votes)。
  * @dev 对应白皮书 4.3.1 章节
  */
 contract BufferToken is ERC20, ERC20Burnable, AccessControl, ERC20Permit, ERC20Votes {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
-    constructor(address initialAdmin, uint256 initialSupply) ERC20("Buffer Token", "BFR") ERC20Permit("Buffer Token") {
+    constructor(address initialAdmin, uint256 initialSupply) ERC20("SecureTransfer Token", "STP") ERC20Permit("SecureTransfer Token") {
         require(initialAdmin != address(0), "Admin zero");
         
         // 1. 根据参数铸造初始供应量

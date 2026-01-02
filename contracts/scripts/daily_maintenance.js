@@ -92,10 +92,10 @@ async function main() {
 
         if (isTriggerable) {
             console.log("Threshold met! Executing BuybackAndBurn...");
-            // Min BFR out amounts (slippage protection). For now set to 0 for simplicity.
-            const minBfrOuts = tokensToCheck.map(() => 0); 
+            // Min STP out amounts (slippage protection). For now set to 0 for simplicity.
+            const minStpOuts = tokensToCheck.map(() => 0); 
             
-            const tx = await feeCollector.executeBuybackAndBurn(tokensToCheck, minBfrOuts, includeNative);
+            const tx = await feeCollector.executeBuybackAndBurn(tokensToCheck, minStpOuts, includeNative);
             console.log(`- Buyback tx sent: ${tx.hash}`);
             await tx.wait();
             console.log("- Buyback executed successfully!");

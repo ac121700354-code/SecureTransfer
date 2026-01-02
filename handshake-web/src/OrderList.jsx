@@ -129,7 +129,7 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
         const details = await Promise.all(ids.map(async (id) => {
           try {
             const record = await contract.activeTransfers(id);
-            // record: [sender, receiver, token, amount, createdAt, expiresAt]
+            // record: [sender, receiver, token, amount, createdAt]
             return {
               id: id,
               sender: record[0],
@@ -137,7 +137,7 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
               token: record[2],
               amount: record[3],
               createdAt: record[4],
-              expiresAt: record[5]
+              // expiresAt removed
             };
           } catch (e) {
             console.error("Failed to fetch order:", id, e);

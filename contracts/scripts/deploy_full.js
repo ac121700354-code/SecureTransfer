@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 require("dotenv").config();
 const networkConfig = require("../network-config.js");
+const distributionConfig = require("./distribution_config.js");
 
 // Configuration
 // Dynamic loading from network-config.js
@@ -32,7 +33,7 @@ async function main() {
     let initialSupply = 0n;
     if (network.name.includes("bnb") || network.name.includes("sepolia") || network.name === "hardhat") {
         initialSupply = ethers.parseUnits("100000000", 18);
-        console.log(`  - Minting 100M BFR (Chain: ${network.name})`);
+        console.log(`  - Minting 100M STP (Chain: ${network.name})`);
     } else {
         console.log(`  - Side Chain Mode: Initial Supply 0 (Chain: ${network.name})`);
     }
@@ -43,21 +44,36 @@ async function main() {
     console.log(`BufferToken deployed to: ${bufferTokenAddress}`);
 
     // --- 2. Distribute Initial Tokens ---
-    console.log("\n2. Distributing Tokens...");
-    // Transfer 15% to Team
-    const teamAmount = ethers.parseUnits("15000000", 18); // 15M
-    let targetWallet = TEAM_WALLET;
-    if (!ethers.isAddress(targetWallet)) {
-        console.warn("Invalid or missing TEAM_WALLET in .env, using deployer address instead.");
-        targetWallet = deployer.address;
+    console.log("\n2. Distributing Tokens based on distribution_config.js...");
+    
+    // We assume the deployer holds all tokens initially (minted in step 1)
+    // distributionConfig.distribution contains the plan
+    
+    for (const [key, info] of Object.entries(distributionConfig.distribution)) {
+        // Skip if address is invalid or placeholder
+        if (!info.address || info.address.startsWith("0x...") || !ethers.isAddress(info.address)) {
+            console.warn(`  [Warning] Skipping distribution for '${key}' (${info.description}): Invalid address '${info.address}'`);
+            continue;
+        }
+
+        const amountWei = ethers.parseUnits(info.amount, 18);
+        
+        // Skip if amount is 0
+        if (amountWei === 0n) continue;
+
+        console.log(`  - Transferring ${info.percentage}% (${info.amount} STP) to ${info.description}...`);
+        try {
+            const tx = await bufferToken.transfer(info.address, amountWei);
+            await tx.wait();
+            console.log(`    Success: Tx Hash: ${tx.hash}`);
+        } catch (err) {
+            console.error(`    Failed to transfer to ${key}: ${err.message}`);
+        }
     }
     
-    if (targetWallet !== deployer.address) {
-        await bufferToken.transfer(targetWallet, teamAmount);
-        console.log(`Transferred ${ethers.formatUnits(teamAmount, 18)} BFR to Team (${targetWallet})`);
-    } else {
-        console.log("Tokens kept in deployer wallet (Dev Mode).");
-    }
+    // Check remaining balance of deployer (should be 0 if all distributed, or remainder)
+    const deployerBalance = await bufferToken.balanceOf(deployer.address);
+    console.log(`  Deployer remaining balance: ${ethers.formatUnits(deployerBalance, 18)} STP`);
 
     // --- 3. Deploy FeeCollector ---
     console.log("\n3. Deploying FeeCollector...");
@@ -214,10 +230,58 @@ async function main() {
     // Construct new config entry for this chain
     const chainId = network.config.chainId.toString();
     
+    // Construct Tokens List
+    const tokensList = [];
+    
+    // 1. Native Token
+    if (network.name.includes("bnb") || network.name.includes("bsc")) {
+        tokensList.push({
+            symbol: "BNB",
+            name: "BNB",
+            logo: "https://cryptologos.cc/logos/bnb-bnb-logo.svg?v=035",
+            address: ethers.ZeroAddress
+        });
+    } else {
+        tokensList.push({
+            symbol: "ETH",
+            name: "Ethereum",
+            logo: "https://cryptologos.cc/logos/ethereum-eth-logo.svg?v=035",
+            address: ethers.ZeroAddress
+        });
+    }
+
+    // 2. Buffer Token
+    tokensList.push({
+        symbol: "STP",
+        "name": "SecureTransfer Token",
+        logo: "./tokens/bfr-logo.svg?v=12",
+        address: bufferTokenAddress
+    });
+
+    // 3. Others from config
+    const standardTokens = [
+        { key: "USDT", name: "Tether USD", logo: "https://cryptologos.cc/logos/tether-usdt-logo.svg?v=035" },
+        { key: "USDC", name: "USD Coin", logo: "https://cryptologos.cc/logos/usd-coin-usdc-logo.svg?v=035" },
+        { key: "BTC", name: "Bitcoin", logo: "https://cryptologos.cc/logos/bitcoin-btc-logo.svg?v=035" },
+        { key: "ETH", name: "Ethereum", logo: "https://cryptologos.cc/logos/ethereum-eth-logo.svg?v=035" }
+    ];
+
+    for (const t of standardTokens) {
+        if (currentNet.tokens[t.key] && currentNet.tokens[t.key] !== ethers.ZeroAddress) {
+             tokensList.push({
+                 symbol: t.key,
+                 name: t.name,
+                 logo: t.logo,
+                 address: currentNet.tokens[t.key]
+             });
+        }
+    }
+
     frontendConfig[chainId] = {
         networkName: network.name,
         rpcUrl: network.config.url || "",
         explorer: "", // TODO: Add explorer URL to network-config
+        tokens: tokensList,
         contracts: {
             BufferToken: {
                 address: bufferTokenAddress,

@@ -46,7 +46,7 @@ contract FeeCollector is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // --- 配置 ---
-    address public bufferToken;       // 协议代币 BFR
+    address public bufferToken;       // 协议代币 STP
     address public uniRouter;         // DEX 路由地址 (Uniswap/Pancake)
     address public weth;              // WETH/WBNB 地址
     
@@ -60,7 +60,7 @@ contract FeeCollector is Ownable, ReentrancyGuard {
     mapping(address => address) public priceFeeds;
 
     // 事件
-    event BuybackExecuted(address indexed token, uint256 amountIn, uint256 bfrAmountOut);
+    event BuybackExecuted(address indexed token, uint256 amountIn, uint256 stpAmountOut);
     event Burned(uint256 amount);
     event ThresholdUpdated(uint256 newThreshold);
 

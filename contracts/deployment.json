@@ -1,12 +1,12 @@
 {
   "network": {
-    "name": "sepolia",
-    "chainId": 11155111
+    "name": "bnb_testnet",
+    "chainId": 97
   },
   "contracts": {
-    "BufferToken": "0x6228B26f55cBE9DD128E77B8e591C73C54040926",
-    "FeeCollector": "0x7b034d6A09eB4B8369A61C00a1eB6836A22D51E3",
-    "EscrowProxy": "0x7Fc201E821FA66E17095e2366E05F75860ee9Cd3",
-    "MockAggregator": "0x4a18DDE21f7Dc36db51892Bc1c2c1D51490179d3"
+    "BufferToken": "0x44BB1792B716E9D5990302EE089ee58D27aa5174",
+    "FeeCollector": "0x9C58E8BB2aC148D1b609C65A66202dAfe9963857",
+    "EscrowProxy": "0x9450ecdfcBEA6E11E080Bf10B16a47373e12F73b",
+    "MockAggregator": "0xba86d4d09adA7Cc5697B3FC3B85F316689A858F0"
   }
 }

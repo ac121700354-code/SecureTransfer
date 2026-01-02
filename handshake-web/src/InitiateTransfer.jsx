@@ -161,7 +161,14 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
 
       const signer = await provider.getSigner();
       
-      const escrowContract = new ethers.Contract(contracts.EscrowProxy.address, contracts.EscrowProxy.abi, signer);
+      const escrowAddress = contracts?.EscrowProxy?.address;
+      const escrowAbi = contracts?.EscrowProxy?.abi;
+      
+      if (!escrowAddress || !escrowAbi) {
+          throw new Error("Contract configuration missing for this network");
+      }
+
+      const escrowContract = new ethers.Contract(escrowAddress, escrowAbi, signer);
       
       const tokenAddress = ethers.getAddress(selectedToken.address || customTokenAddress);
       const isNative = tokenAddress === NATIVE_TOKEN;
@@ -170,7 +177,6 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
       const weiAmount = ethers.parseUnits(amount, decimals);
 
       if (!isNative) {
-        const tokenContract = new ethers.Contract(tokenAddress, contracts.BufferToken.abi, signer);
         
         // 0. 预检查：余额是否充足
         if (parseFloat(amount) > parseFloat(balance)) {
@@ -178,8 +184,13 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
           setLoading(false);
           return;
         }
+        
+        if (!contracts?.BufferToken?.abi) {
+             throw new Error("BufferToken ABI missing");
+        }
 
         // 1. 检查并授权
+        const tokenContract = new ethers.Contract(tokenAddress, contracts.BufferToken.abi, signer);
         const allowance = await tokenContract.allowance(account, contracts.EscrowProxy.address);
         if (allowance < weiAmount) {
           // 如果授权不足，请求授权
@@ -224,8 +235,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
                     receiver: parsed.args[2],
                     token: parsed.args[3],
                     amount: parsed.args[4],
-                    createdAt: parsed.args[5],
-                    expiresAt: 0 // 假设不过期，或者根据合约逻辑推断
+                    createdAt: Math.floor(Date.now() / 1000)
                   };
                   break;
                 }

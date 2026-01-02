@@ -23,8 +23,8 @@
 
 ## 构造参数
 - `BufferToken(name, symbol, cap, owner)`
-  - `name`：代币名称，例如 `Buffer Token`
-  - `symbol`：代币符号，例如 `BUF`
+  - `name`：代币名称，例如 `SecureTransfer Token`
+  - `symbol`：代币符号，例如 `STP`
   - `cap`：最大供应量（包含 18 位精度），例如 `1_000_000 * 1e18`
   - `owner`：初始所有者地址（如填 `0x0` 则默认部署者）
 - `MerkleDistributor(token, merkleRoot, owner)`

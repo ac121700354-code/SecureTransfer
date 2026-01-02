@@ -74,7 +74,7 @@ async function main() {
         
         if (isTriggerable) {
             console.log("Threshold met! Executing BuybackAndBurn...");
-            // 由于我们已经添加了流动性 (1000 BFR + 0.1 BNB)
+            // 由于我们已经添加了流动性 (1000 STP + 0.1 BNB)
             // 理论上这次调用应该成功
             tx = await feeCollector.executeBuybackAndBurn(tokensToCheck, [], includeNative);
             console.log(`Buyback tx sent: ${tx.hash}`);
@@ -82,8 +82,8 @@ async function main() {
             console.log("Buyback executed successfully!");
             
             // 检查余额变化
-            const bfrBalance = await (await ethers.getContractAt("IERC20", bufferTokenAddress)).balanceOf(feeCollectorAddress);
-            console.log(`FeeCollector BFR Balance (should be 0, burned): ${bfrBalance}`);
+            const stpBalance = await (await ethers.getContractAt("IERC20", bufferTokenAddress)).balanceOf(feeCollectorAddress);
+            console.log(`FeeCollector STP Balance (should be 0, burned): ${stpBalance}`);
             
         } else {
             console.log("Threshold not met (Unexpected).");

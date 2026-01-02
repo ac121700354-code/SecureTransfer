@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback, useRef, createContext, useCont
 import { ethers } from 'ethers';
 import InitiateTransfer from './InitiateTransfer';
 import OrderList from './OrderList';
+import TransactionHistory from './components/TransactionHistory';
 import IntroSection from './components/IntroSection';
-import { FaWallet, FaShieldAlt, FaSignOutAlt, FaExchangeAlt, FaNetworkWired, FaEthereum, FaLayerGroup, FaChevronDown, FaSpinner, FaGlobe } from 'react-icons/fa';
+import { FaWallet, FaShieldAlt, FaSignOutAlt, FaExchangeAlt, FaNetworkWired, FaEthereum, FaLayerGroup, FaChevronDown, FaSpinner, FaGlobe, FaBook } from 'react-icons/fa';
 import { SiBinance } from 'react-icons/si';
 import WalletModal from './components/WalletModal';
 import { ToastProvider, useToast } from './components/Toast';
@@ -580,7 +581,13 @@ export default function App() {
                      </div>
                      <div>
                        <h1 className="text-xl font-bold text-white tracking-tight">{t.appTitle}</h1>
-                       <p className="text-[10px] text-slate-400 font-medium tracking-wide uppercase">{t.appSubtitle}</p>
+                       <button 
+                         onClick={() => setIsWhitepaperOpen(true)}
+                         className="group flex items-center gap-1.5 text-[10px] text-slate-400 font-medium tracking-wide uppercase hover:text-blue-400 transition-colors py-0.5 text-left"
+                         title={t.whitepaper}
+                       >
+                         <span className="border-b border-slate-700 group-hover:border-blue-400/50 transition-colors pb-px">{t.appSubtitle}</span>
+                       </button>
                      </div>
                   </div>
                   {/* 移动端连接按钮放右上角？或者保持原样在下方 */}
@@ -650,6 +657,14 @@ export default function App() {
                           activeConfig={activeConfig}
                           chainId={chainId}
                       />
+                      
+                      <TransactionHistory 
+                          account={account} 
+                          provider={walletProvider}
+                          chainId={chainId}
+                          activeConfig={activeConfig}
+                          refreshTrigger={refreshTrigger}
+                      />
                     </ErrorBoundary>
                   ) : (
                     <div className="min-h-[700px] h-full flex flex-col items-center justify-center bg-slate-800/30 rounded-[2rem] border border-dashed border-slate-700/50">
@@ -665,12 +680,6 @@ export default function App() {
             </main>
             
             <footer className="max-w-7xl mx-auto px-4 md:px-6 pb-8 text-center">
-              <button 
-                onClick={() => setIsWhitepaperOpen(true)}
-                className="text-xs text-slate-500 hover:text-blue-400 transition-colors border-b border-transparent hover:border-blue-400/50 pb-0.5"
-              >
-                {t.whitepaper}
-              </button>
               <p className="text-[10px] text-slate-600 mt-2">
                 SecureTransfer Protocol © 2025
               </p>
