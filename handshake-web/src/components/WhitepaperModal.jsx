@@ -1,9 +1,10 @@
 import React from 'react';
 import { FaTimes, FaFileAlt } from 'react-icons/fa';
 import { useLanguage } from '../App';
+import { WhitepaperContentZh, WhitepaperContentEn } from './WhitepaperContent';
 
 export default function WhitepaperModal({ isOpen, onClose }) {
-  const { t } = useLanguage();
+  const { lang } = useLanguage(); // Only need lang, not t
 
   if (!isOpen) return null;
 
@@ -20,8 +21,10 @@ export default function WhitepaperModal({ isOpen, onClose }) {
               <FaFileAlt size={20} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">On-Chain Secure Transfer Protocol {t.whitepaper}</h2>
-              <p className="text-xs text-slate-400">A Secure, Trusted, and Reversible Next-Generation Blockchain Transfer Protocol</p>
+              <h2 className="text-xl font-bold text-white">
+                {lang === 'zh' ? '白皮书' : 'Whitepaper'}
+              </h2>
+              <p className="text-xs text-slate-400">SecureTransfer Protocol</p>
             </div>
           </div>
           <button 
@@ -33,46 +36,12 @@ export default function WhitepaperModal({ isOpen, onClose }) {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar text-slate-300 leading-relaxed space-y-8">
+        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+          {lang === 'zh' ? <WhitepaperContentZh /> : <WhitepaperContentEn />}
           
-          <section>
-            <h3 className="text-2xl font-bold text-white mb-4">1. {t.introduction}</h3>
-            <p>{t.whitepaperIntro}</p>
-          </section>
-
-          <section>
-            <h3 className="text-2xl font-bold text-white mb-4">2. Problem Statement</h3>
-            <p>
-              While the decentralized nature of blockchain technology offers transparency, it also brings significant risks. Once a transfer transaction is initiated, the funds are instantly irreversible. Situations such as incorrect address entry, fraudulent transfer requests, and contract interaction errors result in the permanent loss of hundreds of millions of dollars in assets annually.
-            </p>
-            <p className="mt-2">
-              The existing market lacks a native, trustless on-chain transaction protection mechanism.
-            </p>
-          </section>
-
-          <section>
-            <h3 className="text-2xl font-bold text-white mb-4">3. {t.coreMechanism}</h3>
-            <div className="pl-4 border-l-2 border-blue-500/30 space-y-4">
-              <div>
-                <p>{t.whitepaperMech}</p>
-              </div>
-            </div>
-          </section>
-
-          <section>
-            <h3 className="text-2xl font-bold text-white mb-4">4. {t.technicalArchitecture}</h3>
-            <p>{t.whitepaperArch}</p>
-          </section>
-
-          <section>
-            <h3 className="text-2xl font-bold text-white mb-4">5. {t.securityAudit}</h3>
-            <p>{t.whitepaperAudit}</p>
-          </section>
-
-          <div className="text-center pt-8 border-t border-white/5 text-slate-500 text-sm">
+          <div className="text-center pt-8 mt-8 border-t border-white/5 text-slate-500 text-sm">
             &copy; 2025 SecureTransfer Protocol. All Rights Reserved.
           </div>
-
         </div>
       </div>
     </div>
