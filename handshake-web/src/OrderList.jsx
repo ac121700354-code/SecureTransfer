@@ -62,11 +62,11 @@ const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensC
              </div>
 
              {/* Amount */}
-             <div className={`flex items-end gap-2 mt-3 ml-0.5 ${isOut ? 'mb-1' : ''}`}>
+             <div className={`flex items-end gap-2 mt-3 ml-0.5 ${isOut ? 'mb-1' : ''} justify-between`}>
                <span className={`text-2xl font-bold tracking-tight leading-none ${isOut ? 'text-rose-400' : 'text-emerald-400'}`} title={safeFormat(order.amount)}>
                  {isOut ? "-" : "+"} {safeFormat(order.amount)}
                </span>
-               <span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-md uppercase tracking-wider">
+               <span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-md uppercase tracking-wider ml-auto">
                  {getTokenName(order.token)}
               </span>
             </div>
