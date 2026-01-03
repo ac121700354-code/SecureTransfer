@@ -263,15 +263,6 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
 
       if (onActionSuccess) onActionSuccess();
 
-      // 如果是放款操作，触发余额刷新
-      if (method === 'confirm' && onActionSuccess) {
-          // 这里 onActionSuccess 已经被调用了，它在 App.jsx 中会更新 refreshTrigger
-          // 但我们需要确保 InitiateTransfer 组件也能收到信号刷新余额
-          // 目前 App.jsx 中的逻辑是：setRefreshTrigger(prev => prev + 1)
-          // InitiateTransfer 监听了 refreshBalanceTrigger (即 App.jsx 的 refreshTrigger)
-          // 所以理论上余额会自动刷新。
-      }
-
     } catch (err) {
       console.error("Action error:", err);
       const reason = err.reason || (err.message.includes("Only sender") ? t.transactionFailed : t.transactionFailed);
