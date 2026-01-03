@@ -2348,7 +2348,7 @@
         "symbol": "STP",
         "name": "SecureTransfer Token",
         "logo": "./tokens/bfr-logo.svg?v=12",
-        "address": "0xD89834Be33eB2B213EEfa7EDf008Fcfa828362cD"
+        "address": "0xbcAed2621b68605cD3c8Ac0aF133931804a63220"
       },
       {
         "symbol": "USDT",
@@ -2377,7 +2377,7 @@
     ],
     "contracts": {
       "BufferToken": {
-        "address": "0xD89834Be33eB2B213EEfa7EDf008Fcfa828362cD",
+        "address": "0xbcAed2621b68605cD3c8Ac0aF133931804a63220",
         "abi": [
           {
             "inputs": [
@@ -3535,7 +3535,7 @@
         ]
       },
       "EscrowProxy": {
-        "address": "0x4540A08760c7039D96EEbdb0826f94d2e3381A08",
+        "address": "0xc47169416c9645F858ff9185Dd3950fad6A99694",
         "abi": [
           {
             "inputs": [],
@@ -3691,25 +3691,6 @@
               }
             ],
             "name": "Paused",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": true,
-                "internalType": "bytes32",
-                "name": "id",
-                "type": "bytes32"
-              },
-              {
-                "indexed": true,
-                "internalType": "address",
-                "name": "receiver",
-                "type": "address"
-              }
-            ],
-            "name": "TransferConfirmed",
             "type": "event"
           },
           {
@@ -3930,11 +3911,6 @@
                 "internalType": "uint256",
                 "name": "createdAt",
                 "type": "uint256"
-              },
-              {
-                "internalType": "bool",
-                "name": "isConfirmed",
-                "type": "bool"
               }
             ],
             "stateMutability": "view",
@@ -3962,19 +3938,6 @@
               }
             ],
             "name": "confirm",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "bytes32",
-                "name": "_id",
-                "type": "bytes32"
-              }
-            ],
-            "name": "confirmOrder",
             "outputs": [],
             "stateMutability": "nonpayable",
             "type": "function"
@@ -4108,11 +4071,6 @@
                     "internalType": "uint256",
                     "name": "createdAt",
                     "type": "uint256"
-                  },
-                  {
-                    "internalType": "bool",
-                    "name": "isConfirmed",
-                    "type": "bool"
                   }
                 ],
                 "internalType": "struct SecureHandshakeUnlimitedInbox.TransferRecord[]",
@@ -4159,11 +4117,6 @@
                     "internalType": "uint256",
                     "name": "createdAt",
                     "type": "uint256"
-                  },
-                  {
-                    "internalType": "bool",
-                    "name": "isConfirmed",
-                    "type": "bool"
                   }
                 ],
                 "internalType": "struct SecureHandshakeUnlimitedInbox.TransferRecord[]",
@@ -4535,7 +4488,7 @@
         ]
       },
       "MockAggregator": {
-        "address": "0x1752cb7D385f908D2667087d8c2D4f904219117d",
+        "address": "0x7cE6B69fa09FdeEfa26902e41cB113ca1d5dDF48",
         "abi": [
           {
             "inputs": [

@@ -78,10 +78,16 @@ async function main() {
     // --- 3. Deploy FeeCollector ---
     console.log("\n3. Deploying FeeCollector...");
     const FeeCollector = await ethers.getContractFactory("FeeCollector");
+    // Use DAO_WALLET from env as DAO Treasury
+    const daoTreasury = process.env.DAO_WALLET || deployer.address;
+    
+    console.log(`  FeeCollector DAO Treasury: ${daoTreasury}`);
+
     const feeCollector = FeeCollector.deploy(
         bufferTokenAddress,
         ROUTER_ADDRESS,
-        WBNB_ADDRESS
+        WBNB_ADDRESS,
+        daoTreasury
     );
     await (await feeCollector).waitForDeployment();
     const feeCollectorAddress = await (await feeCollector).getAddress();

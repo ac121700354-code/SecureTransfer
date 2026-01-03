@@ -73,19 +73,14 @@ const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensC
      </div>
 
       {/* Actions */}
-      {isOut ? (
+      {isOut && (
         <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
           <button 
             onClick={() => onAction(order.id, 'confirm')}
-            disabled={!!processingState || !order.isConfirmed}
-            className={`py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:scale-100
-                ${!order.isConfirmed 
-                    ? 'bg-slate-700 text-slate-400 cursor-not-allowed' 
-                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/10'}`
-            }
+            disabled={!!processingState}
+            className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/10 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
           >
-            {processingAction === 'confirm' ? <FaHourglassHalf className="animate-spin" /> : <FaCheckCircle />} 
-            {order.isConfirmed ? t.confirmPayment : t.waitingForConfirmation}
+            {processingAction === 'confirm' ? <FaHourglassHalf className="animate-spin" /> : <FaCheckCircle />} {t.confirmPayment}
           </button>
           <button 
             onClick={() => onAction(order.id, 'cancel')}
@@ -94,23 +89,6 @@ const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensC
           >
             {processingAction === 'cancel' ? <FaHourglassHalf className="animate-spin" /> : <FaTimesCircle />} {t.cancelOrder}
           </button>
-        </div>
-      ) : (
-        <div className="pt-4 border-t border-white/5">
-             {order.isConfirmed ? (
-                 <div className="text-center text-xs text-emerald-400 font-bold flex items-center justify-center gap-2 py-2 bg-emerald-500/5 rounded-lg border border-emerald-500/10">
-                     <FaCheckCircle /> {t.orderConfirmed}
-                 </div>
-             ) : (
-                 <button 
-                    onClick={() => onAction(order.id, 'confirmOrder')}
-                    disabled={!!processingState}
-                    className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-blue-600/10 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
-                  >
-                    {processingAction === 'confirmOrder' ? <FaHourglassHalf className="animate-spin" /> : <FaCheckCircle />} 
-                    {t.confirmReceipt}
-                  </button>
-             )}
         </div>
       )}
     </div>
@@ -151,7 +129,7 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
         const details = await Promise.all(ids.map(async (id) => {
           try {
             const record = await contract.activeTransfers(id);
-            // record: [sender, receiver, token, amount, createdAt, isConfirmed]
+            // record: [sender, receiver, token, amount, createdAt]
             return {
               id: id,
               sender: record[0],
@@ -159,7 +137,6 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
               token: record[2],
               amount: record[3],
               createdAt: record[4],
-              isConfirmed: record[5] || false,
               // expiresAt removed
             };
           } catch (e) {
@@ -271,13 +248,8 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
       const tx = await contract[method](id);
       await tx.wait(); 
 
-      // Success Message
-      let successMsg = t.transactionInitiated;
-      if (method === 'cancel') successMsg = t.cancelled;
-      else if (method === 'confirmOrder') successMsg = t.orderConfirmed;
-      else if (method === 'confirm') successMsg = t.confirmPayment; // Reuse button text "Confirm Payment"
-
-      toast.success(successMsg);
+      // 替换 alert 为 toast
+      toast.success(method === 'cancel' ? t.cancelled : t.transactionInitiated);
 
       // 乐观更新
       setInbox(prev => prev.filter(item => item.id !== id));

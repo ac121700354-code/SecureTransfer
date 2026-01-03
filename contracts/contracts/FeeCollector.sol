@@ -50,9 +50,12 @@ contract FeeCollector is Ownable, ReentrancyGuard {
     address public uniRouter;         // DEX 路由地址 (Uniswap/Pancake)
     address public weth;              // WETH/WBNB 地址
     
-    // 销毁地址 (白皮书提到 0x...dEaD，但我们优先尝试调用 burn)
+    // 销毁地址
     address public constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
     
+    // DAO 金库地址
+    address public daoTreasury;
+
     // 触发回购的最小美元价值 ($10,000)
     uint256 public buybackThresholdUsd = 10_000 * 1e18; 
     
@@ -62,20 +65,30 @@ contract FeeCollector is Ownable, ReentrancyGuard {
     // 事件
     event BuybackExecuted(address indexed token, uint256 amountIn, uint256 stpAmountOut);
     event Burned(uint256 amount);
+    event DaoFunded(uint256 amount);
     event ThresholdUpdated(uint256 newThreshold);
+    event DaoTreasuryUpdated(address newTreasury);
 
-    constructor(address _bufferToken, address _uniRouter, address _weth) Ownable(msg.sender) {
+    constructor(address _bufferToken, address _uniRouter, address _weth, address _daoTreasury) Ownable(msg.sender) {
         require(_bufferToken != address(0), "Token zero");
         require(_uniRouter != address(0), "Router zero");
+        require(_daoTreasury != address(0), "Treasury zero");
         bufferToken = _bufferToken;
         uniRouter = _uniRouter;
         weth = _weth;
+        daoTreasury = _daoTreasury;
     }
 
     // 允许接收原生代币 (BNB/ETH)
     receive() external payable {}
 
     // --- 管理配置 ---
+    
+    function setDaoTreasury(address _daoTreasury) external onlyOwner {
+        require(_daoTreasury != address(0), "Zero address");
+        daoTreasury = _daoTreasury;
+        emit DaoTreasuryUpdated(_daoTreasury);
+    }
 
     function setPriceFeed(address token, address feed) external onlyOwner {
         priceFeeds[token] = feed;
@@ -150,9 +163,20 @@ contract FeeCollector is Ownable, ReentrancyGuard {
             }
         }
 
-        // 4. 销毁 BFR
+        // 4. 分配 BFR (90% 销毁, 10% DAO)
         require(totalBfrBought > 0, "No BFR bought");
-        _burnBfr(totalBfrBought);
+        
+        uint256 burnAmount = (totalBfrBought * 90) / 100;
+        uint256 daoAmount = totalBfrBought - burnAmount;
+
+        // 90% 销毁
+        _burnBfr(burnAmount);
+        
+        // 10% 转入 DAO
+        if (daoAmount > 0) {
+            IERC20(bufferToken).safeTransfer(daoTreasury, daoAmount);
+            emit DaoFunded(daoAmount);
+        }
     }
 
     // --- 内部逻辑 ---

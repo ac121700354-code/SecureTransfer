@@ -44,7 +44,6 @@ contract SecureHandshakeUnlimitedInbox is
         address token;      // 代币地址（0x0 代表原生代币）
         uint256 amount;     // 金额
         uint256 createdAt;  // 创建时间戳
-        bool isConfirmed;   // 收款方是否确认
     }
 
     // --- 协议配置 ---
@@ -75,7 +74,6 @@ contract SecureHandshakeUnlimitedInbox is
 
     // 事件定义
     event TransferInitiated(bytes32 indexed id, address indexed sender, address indexed receiver, address token, uint256 amount);
-    event TransferConfirmed(bytes32 indexed id, address indexed receiver);
     event TransferSettled(bytes32 indexed id, address indexed sender, address indexed receiver, address token, uint256 amount, string action);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -181,8 +179,7 @@ contract SecureHandshakeUnlimitedInbox is
             receiver: _receiver,
             token: _token,
             amount: _amount,
-            createdAt: block.timestamp,
-            isConfirmed: false
+            createdAt: block.timestamp
             // expiresAt: Removed
         });
 
@@ -223,20 +220,6 @@ contract SecureHandshakeUnlimitedInbox is
 
 
     /**
-     * @notice 收款方确认订单
-     * @param _id 交易 ID
-     */
-    function confirmOrder(bytes32 _id) external nonReentrant whenNotPaused {
-        TransferRecord storage t = activeTransfers[_id];
-        require(t.receiver != address(0), "Record not found");
-        require(msg.sender == t.receiver, "Only receiver can confirm");
-        require(!t.isConfirmed, "Already confirmed");
-        
-        t.isConfirmed = true;
-        emit TransferConfirmed(_id, msg.sender);
-    }
-
-    /**
      * @notice 确认放款 (发送方调用)
      * @dev 资金转移给接收方，扣除手续费
      * @param _id 交易 ID
@@ -247,9 +230,9 @@ contract SecureHandshakeUnlimitedInbox is
         require(msg.sender == t.sender, "Only sender can authorize");
         // 2. 状态检查：订单是否存在
         require(t.receiver != address(0), "Record not found");
-        // 3. 确认检查：收款方必须已确认
-        require(t.isConfirmed, "Receiver has not confirmed");
-        
+        // 3. 有效期检查：订单是否已过期 - REMOVED
+        // require(block.timestamp <= t.expiresAt, "Record expired");
+
         // 4. 计算费用
         uint256 fee = _calculateFee(t.token, t.amount);
         uint256 finalAmount = t.amount - fee;

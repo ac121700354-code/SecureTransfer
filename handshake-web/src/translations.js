@@ -73,9 +73,6 @@ export const translations = {
     action: "Action",
     confirmPayment: "Confirm Payment",
     cancelOrder: "Cancel Order",
-    orderConfirmed: "Confirmed",
-    confirmReceipt: "Confirm Receipt",
-    waitingForConfirmation: "Waiting for Receiver Confirmation",
     statusPending: "PENDING",
     statusCompleted: "COMPLETED",
     statusCancelled: "CANCELLED",
@@ -91,6 +88,7 @@ export const translations = {
     confirmBtn: "Confirm Release",
     cancelBtn: "Cancel Order",
     back: "Back",
+    feeDescription: "Protocol fees: 90% Burned, 10% to DAO Treasury.",
     switchLang: "CN"
   },
   zh: {
@@ -167,9 +165,6 @@ export const translations = {
     action: "操作",
     confirmPayment: "确认放款",
     cancelOrder: "取消订单",
-    orderConfirmed: "已确认",
-    confirmReceipt: "确认订单",
-    waitingForConfirmation: "等待收款方确认",
     statusPending: "进行中",
     statusCompleted: "已完成",
     statusCancelled: "已取消",
@@ -185,6 +180,7 @@ export const translations = {
     confirmBtn: "确认放款",
     cancelBtn: "取消订单",
     back: "返回",
+    feeDescription: "协议费用：90% 回购销毁，10% 进入 DAO 金库。",
     switchLang: "EN"
   }
 };
