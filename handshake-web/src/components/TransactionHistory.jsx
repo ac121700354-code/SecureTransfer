@@ -232,12 +232,75 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
   }, [refreshTrigger]);
 
 
-  if (!account) return null;
+  const sentHistory = history.filter(h => h.type === 'send');
+  const receivedHistory = history.filter(h => h.type !== 'send');
+
+  const HistoryCard = ({ item }) => (
+      <div className="bg-slate-800/40 border p-3 rounded-xl mb-2 transition-all duration-300 border-white/5 hover:border-blue-500/20 hover:bg-slate-800/60">
+        <div className="flex items-center gap-3 w-full">
+           <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shadow-sm ring-1 ring-white/5 shrink-0
+              ${item.type === 'send' ? 'bg-indigo-500/10 text-indigo-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+              {item.type === 'send' ? <FaArrowUp /> : <FaArrowDown />}
+           </div>
+           
+           <div className="flex-1 min-w-0">
+               {/* Top Row: Address + Status */}
+               <div className="flex items-center justify-between mb-1">
+                  <div className="font-mono text-slate-300 bg-slate-950/30 px-1.5 py-0.5 rounded border border-white/5 text-[10px] tracking-tight">
+                     {item.counterparty.slice(0, 6)}...{item.counterparty.slice(-4)}
+                  </div>
+                  
+                  <span className={`
+                        inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide
+                        ${item.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-400' : ''}
+                        ${item.status === 'PENDING' ? 'bg-amber-500/10 text-amber-400' : ''}
+                        ${item.status === 'CANCELLED' ? 'bg-rose-500/10 text-rose-400' : ''}
+                        ${item.status === 'EXPIRED' ? 'bg-slate-500/10 text-slate-400' : ''}
+                    `}>
+                        {item.status === 'COMPLETED' && <FaCheckCircle size={8} />}
+                        {item.status === 'PENDING' && <FaClock size={8} />}
+                        {item.status === 'CANCELLED' && <FaBan size={8} />}
+                        {item.status === 'EXPIRED' && <FaTimesCircle size={8} />}
+                        <span className="ml-0.5">
+                            {item.status === 'COMPLETED' ? t.statusCompleted : 
+                             item.status === 'PENDING' ? t.statusPending : 
+                             item.status === 'CANCELLED' ? t.statusCancelled : 
+                             item.status === 'EXPIRED' ? t.statusExpired : 
+                             item.status}
+                        </span>
+                  </span>
+               </div>
+
+               {/* Bottom Row: Time + Amount + Link */}
+               <div className="flex items-center justify-between">
+                  <div className="text-[10px] text-slate-500 font-medium">
+                     {new Date(item.timestamp).toLocaleString()}
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                     <span className={`text-xs font-bold ${item.type === 'send' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                        {item.type === 'send' ? '-' : '+'} {parseFloat(item.amount).toFixed(4)} 
+                        <span className="text-[10px] text-slate-500 font-normal ml-1">{item.token}</span>
+                     </span>
+                     <a 
+                        href={`${activeConfig.explorer || '#'}?tx=${item.txHash}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-slate-600 hover:text-blue-400 transition-colors"
+                     >
+                        <FaExternalLinkAlt size={10} />
+                     </a>
+                  </div>
+               </div>
+           </div>
+        </div>
+      </div>
+  );
 
   return (
-    <div className="bg-slate-800/30 rounded-2xl border border-white/5 p-6 mt-8 min-h-[300px] flex flex-col">
-      <div className="flex items-center justify-between mb-6 flex-shrink-0">
-        <h3 className="text-xl font-bold text-white flex items-center gap-2">
+    <div className="bg-slate-900/20 rounded-[2.5rem] border border-white/5 overflow-hidden min-h-[500px] flex flex-col mt-8">
+      <div className="p-6 border-b border-white/5 flex justify-between items-center shrink-0 bg-slate-800/20">
+        <h3 className="text-white font-bold text-lg flex items-center gap-2">
           <FaHistory className="text-blue-400" />
           {t.transactionHistory || "Transaction History"}
         </h3>
@@ -250,74 +313,44 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
         </button>
       </div>
 
-      <div className="w-full">
-        {loading && history.length === 0 ? (
-          <div className="text-center py-10 text-slate-500">{t.loadingHistory}</div>
-        ) : error ? (
-          <div className="text-center py-10 text-rose-500">Error: {error}</div>
-        ) : history.length === 0 ? (
-          <div className="text-center py-10 text-slate-500">{t.noTransactionHistory}</div>
-        ) : (
-          <div className="overflow-x-auto">
-            {/* Unified Card View */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {history.map((item) => (
-                <div key={item.id} className="bg-white/5 rounded-xl p-4 border border-white/5 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className={`flex items-center gap-2 font-bold text-sm ${item.type === 'send' ? 'text-rose-400' : 'text-emerald-400'}`}>
-                        {item.type === 'send' ? <FaArrowUp size={12} /> : <FaArrowDown size={12} />}
-                        {item.type === 'send' ? t.sent : t.received}
-                    </div>
-                    <span className={`
-                        inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide
-                        ${item.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : ''}
-                        ${item.status === 'PENDING' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : ''}
-                        ${item.status === 'CANCELLED' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : ''}
-                        ${item.status === 'EXPIRED' ? 'bg-slate-500/10 text-slate-400 border border-slate-500/20' : ''}
-                        ${item.status === 'UNKNOWN' ? 'bg-slate-500/10 text-slate-400' : ''}
-                    `}>
-                        {item.status === 'COMPLETED' && <FaCheckCircle size={10} />}
-                        {item.status === 'PENDING' && <FaClock size={10} />}
-                        {item.status === 'CANCELLED' && <FaBan size={10} />}
-                        {item.status === 'EXPIRED' && <FaTimesCircle size={10} />}
-                        {item.status === 'COMPLETED' ? t.statusCompleted : 
-                         item.status === 'PENDING' ? t.statusPending : 
-                         item.status === 'CANCELLED' ? t.statusCancelled : 
-                         item.status === 'EXPIRED' ? t.statusExpired : 
-                         item.status}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="text-slate-400 text-xs">
-                      {t.counterparty}: <span className="font-mono text-slate-300">{item.counterparty.slice(0, 6)}...{item.counterparty.slice(-4)}</span>
-                    </div>
-                    <div className="text-slate-500 text-xs">
-                       {new Date(item.timestamp).toLocaleString()}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                     <div className="font-bold">
-                        <span className={item.type === 'send' ? 'text-rose-400' : 'text-emerald-400'}>
-                          {item.type === 'send' ? '-' : '+'} {parseFloat(item.amount).toFixed(4)} 
-                        </span>
-                        <span className="text-xs text-slate-500 font-normal ml-1">{item.token}</span>
-                     </div>
-                     <a 
-                        href={`${activeConfig.explorer || '#'}?tx=${item.txHash}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-400 hover:text-blue-300 transition-opacity p-2 -mr-2"
-                    >
-                        <FaExternalLinkAlt size={12} />
-                    </a>
-                  </div>
-                </div>
-              ))}
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 min-h-0 divide-y md:divide-y-0 md:divide-x divide-white/5">
+        {/* Inbox History */}
+        <div className="flex flex-col h-full min-h-0">
+             <div className="p-5 pb-3 shrink-0 bg-slate-800/10 backdrop-blur-sm sticky top-0 z-10 h-[52px] flex items-center">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                {t.received} <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">{receivedHistory.length}</span>
+              </h4>
             </div>
-          </div>
-        )}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 pt-0 flex flex-col max-h-[600px]">
+                {loading && history.length === 0 ? (
+                     <div className="text-center py-10 text-slate-500 text-xs">{t.loadingHistory}</div>
+                ) : receivedHistory.length === 0 ? (
+                     <div className="text-center py-10 text-slate-500 text-xs">{t.noTransactionHistory}</div>
+                ) : (
+                    receivedHistory.map(item => <HistoryCard key={item.id} item={item} />)
+                )}
+            </div>
+        </div>
+
+        {/* Outbox History */}
+        <div className="flex flex-col h-full min-h-0">
+            <div className="p-5 pb-3 shrink-0 bg-slate-800/10 backdrop-blur-sm sticky top-0 z-10 h-[52px] flex items-center">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
+                {t.sent} <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">{sentHistory.length}</span>
+              </h4>
+            </div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 pt-0 flex flex-col max-h-[600px]">
+                {loading && history.length === 0 ? (
+                     <div className="text-center py-10 text-slate-500 text-xs">{t.loadingHistory}</div>
+                ) : sentHistory.length === 0 ? (
+                     <div className="text-center py-10 text-slate-500 text-xs">{t.noTransactionHistory}</div>
+                ) : (
+                    sentHistory.map(item => <HistoryCard key={item.id} item={item} />)
+                )}
+            </div>
+        </div>
       </div>
     </div>
   );
