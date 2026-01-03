@@ -288,6 +288,15 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
     }
   };
 
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+
+  const handleManualRefresh = async () => {
+    if (isManualRefreshing || isInitialLoading) return;
+    setIsManualRefreshing(true);
+    await fetchOrders();
+    setIsManualRefreshing(false);
+  };
+
   const sortedInbox = [...inbox].sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
   const sortedOutbox = [...outbox].sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
 
@@ -297,6 +306,14 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
         <h3 className="text-white font-bold text-lg flex items-center gap-2">
            <FaInbox className="text-blue-500" /> {t.history}
         </h3>
+        <button
+          onClick={handleManualRefresh}
+          disabled={isManualRefreshing || isInitialLoading}
+          className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white transition-all disabled:opacity-50"
+          title={t.refresh || "Refresh"}
+        >
+          <FaSync className={`${isManualRefreshing ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
       {/* List Content */}
