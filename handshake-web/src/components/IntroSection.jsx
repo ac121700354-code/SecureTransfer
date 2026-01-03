@@ -38,7 +38,7 @@ const IntroSection = () => {
 
           {/* Arrow 1 (Desktop) */}
           <div className="hidden md:flex absolute left-1/3 top-1/2 -translate-y-1/2 -translate-x-1/2 text-slate-600 z-0">
-             <FaExchangeAlt size={20} className="opacity-30" />
+             {/* <FaExchangeAlt size={20} className="opacity-30" /> */}
           </div>
 
           {/* Step 2: Verify */}
@@ -57,7 +57,7 @@ const IntroSection = () => {
 
           {/* Arrow 2 (Desktop) */}
           <div className="hidden md:flex absolute left-2/3 top-1/2 -translate-y-1/2 -translate-x-1/2 text-slate-600 z-0">
-             <FaExchangeAlt size={20} className="opacity-30" />
+             {/* <FaExchangeAlt size={20} className="opacity-30" /> */}
           </div>
 
           {/* Step 3: Execute */}
