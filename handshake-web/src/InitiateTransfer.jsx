@@ -213,17 +213,23 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
         overrides.value = weiAmount;
       }
 
-      // FIX: OKX Wallet often fails to estimate gas correctly or sets it too low.
-      // We manually estimate gas and add a buffer.
+      // FIX: OKX Wallet "Unknown Transaction Type" & "0 Gas" issue
+      // We explicitly fetch and set fee data (Gas Price) to ensure the wallet recognizes the fee.
       try {
-        const estimatedGas = await escrowContract.initiate.estimateGas(tokenAddress, receiver, weiAmount, overrides);
-        // Add 20% buffer
-        overrides.gasLimit = (estimatedGas * 120n) / 100n;
-      } catch (gasError) {
-        console.warn("Gas estimation failed, using fallback gas limit:", gasError);
-        // Fallback for OKX if estimation fails
-        overrides.gasLimit = 500000n; 
+        const feeData = await provider.getFeeData();
+        if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
+           // EIP-1559 (Preferred for BNB Chain)
+           overrides.maxFeePerGas = feeData.maxFeePerGas;
+           overrides.maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+        } else if (feeData.gasPrice) {
+           // Legacy fallback
+           overrides.gasPrice = feeData.gasPrice;
+        }
+      } catch (feeError) {
+        console.warn("Failed to fetch fee data:", feeError);
       }
+
+      // FIX: OKX Wallet often fails to estimate gas correctly or sets it too low.
 
       const initiateTx = await escrowContract.initiate(tokenAddress, receiver, weiAmount, overrides);
       const receipt = await initiateTx.wait();
