@@ -43,7 +43,7 @@
     ],
     "contracts": {
       "BufferToken": {
-        "address": "0x861a7A930d9e606a961fC36CDdC8F820e2d11A6f",
+        "address": "0x1e540D666acdEda1c3Ca3f98675A34f3F9756aA8",
         "abi": [
           {
             "inputs": [
@@ -1201,7 +1201,7 @@
         ]
       },
       "EscrowProxy": {
-        "address": "0x376108Bd38f12254706D754bE48ba1e8CA048f2e",
+        "address": "0x913B3CC3449921384C227d48940eC8C8FC4E53ac",
         "abi": [
           {
             "inputs": [],
@@ -2201,7 +2201,7 @@
         ]
       },
       "MockAggregator": {
-        "address": "0xA3f490AF942eD2F00650b7a97374351E62A96f3a",
+        "address": "0x2e8e6409d092dB73FF18A3d1C61418E534A3a990",
         "abi": [
           {
             "inputs": [

@@ -45,6 +45,14 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
           
           const currentBlock = await runner.getBlockNumber();
           let scanEnd = currentBlock;
+          
+          // Estimate blocks per day (BSC ~3s per block => ~28800 blocks/day)
+          // For safety, let's assume 30k blocks/day * 7 days = 210k blocks
+          const BLOCKS_PER_DAY = 30000;
+          const MAX_BLOCKS_TO_SCAN = BLOCKS_PER_DAY * 7;
+          
+          const startBlockLimit = Math.max(0, currentBlock - MAX_BLOCKS_TO_SCAN);
+          
           const SCAN_CHUNK_SIZE = 40000; // Safe margin below 50k
           
           // --- Strategy A: TransferSettled (New Contract / Indexed) ---
@@ -53,9 +61,9 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
           
           let allSettledLogs = [];
           
-          // Loop backwards until 0
-          while (scanEnd > 0) {
-              const scanStart = Math.max(0, scanEnd - SCAN_CHUNK_SIZE);
+          // Loop backwards until limit
+          while (scanEnd > startBlockLimit) {
+              const scanStart = Math.max(startBlockLimit, scanEnd - SCAN_CHUNK_SIZE);
               
               // Parallel fetch for this chunk
               const [chunkSent, chunkRecv] = await Promise.all([
@@ -117,8 +125,8 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
               // Move cursor back
               scanEnd = scanStart - 1;
               
-              // Optional: Break if we hit genesis or some logical limit (e.g. contract deployment block if known)
-              if (scanEnd < 0) break;
+              // Break if we hit limit
+              if (scanEnd < startBlockLimit) break;
           }
           
           // Finished scanning all blocks
