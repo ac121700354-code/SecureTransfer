@@ -317,7 +317,6 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
               ))}
             </div>
           </div>
-        </div>
         )}
       </div>
     </div>
