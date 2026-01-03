@@ -196,10 +196,6 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
           // 如果授权不足，请求授权
           const approveTx = await tokenContract.approve(contracts.EscrowProxy.address, ethers.MaxUint256);
           await approveTx.wait();
-          
-          // Wait a few seconds for the approval to propagate to the RPC node
-          // This prevents "Transaction failed" due to allowance race conditions on some nodes (e.g. OKX/Testnets)
-          await new Promise(resolve => setTimeout(resolve, 3000));
         }
       } else {
         // Native Token (BNB)

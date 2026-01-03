@@ -41,35 +41,39 @@ const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensC
   };
 
   return (
-    <div className={`bg-slate-800/40 border p-4 rounded-2xl mb-3 transition-all duration-300 group hover:bg-slate-800/60
+    <div className={`bg-slate-800/40 border p-3 rounded-xl mb-2 transition-all duration-300 group hover:bg-slate-800/60
       ${isThisProcessing ? 'opacity-50 border-blue-500/50 scale-[0.98]' : 'border-white/5 hover:border-blue-500/20'}`}>
       
       {/* Header: Type, Address, Time */}
-      <div className={`flex items-start w-full ${isOut ? 'mb-4' : ''}`}>
-        <div className="flex items-start gap-3 w-full">
+      <div className={`flex items-center w-full ${isOut ? 'mb-2' : ''}`}>
+        <div className="flex items-center gap-3 w-full">
           <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shadow-sm ring-1 ring-white/5 shrink-0
             ${isOut ? 'bg-indigo-500/10 text-indigo-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
             {isOut ? <FaSignOutAlt /> : <FaInbox />}
           </div>
           <div className="flex-1 min-w-0">
-             <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
-               <span className="font-mono text-slate-300 bg-slate-950/30 px-1 py-1 rounded border border-white/5 break-all select-all whitespace-nowrap tracking-tight">
-                 {(isOut ? order.receiver : order.sender).slice(0, 6)}...{(isOut ? order.receiver : order.sender).slice(-4)}
-               </span>
-             </div>
-             <div className="text-[10px] text-slate-500 font-medium mt-0.5 text-left ml-0.5">
-               {formatDate(order.createdAt)}
+             <div className="flex items-center justify-between mb-1">
+                {/* Address */}
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
+                  <span className="font-mono text-slate-300 bg-slate-950/30 px-1.5 py-0.5 rounded border border-white/5 break-all select-all whitespace-nowrap tracking-tight">
+                    {(isOut ? order.receiver : order.sender).slice(0, 6)}...{(isOut ? order.receiver : order.sender).slice(-4)}
+                  </span>
+                </div>
+
+                {/* Amount + Token */}
+                <div className="flex items-center gap-2">
+                   <span className={`text-sm font-bold tracking-tight leading-none ${isOut ? 'text-rose-400' : 'text-emerald-400'}`} title={safeFormat(order.amount)}>
+                     {isOut ? "-" : "+"} {safeFormat(order.amount)}
+                   </span>
+                   <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                      {getTokenName(order.token)}
+                   </span>
+                </div>
              </div>
 
-             {/* Amount */}
-             <div className={`flex items-end gap-2 mt-3 ml-0.5 ${isOut ? 'mb-1' : ''} justify-between`}>
-               <span className={`text-2xl font-bold tracking-tight leading-none ${isOut ? 'text-rose-400' : 'text-emerald-400'}`} title={safeFormat(order.amount)}>
-                 {isOut ? "-" : "+"} {safeFormat(order.amount)}
-               </span>
-               <span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-md uppercase tracking-wider ml-auto">
-                 {getTokenName(order.token)}
-              </span>
-            </div>
+             <div className="text-[10px] text-slate-500 font-medium text-left ml-0.5">
+               {formatDate(order.createdAt)}
+             </div>
          </div>
        </div>
      </div>
