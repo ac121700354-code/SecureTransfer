@@ -112,7 +112,6 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
   const [inbox, setInbox] = useState([]);
   const [outbox, setOutbox] = useState([]);
   const [isInitialLoading, setIsInitialLoading] = useState(false);
-  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [processingState, setProcessingState] = useState(null);
 
   // --- 核心：安全的数据清洗逻辑 ---
@@ -259,28 +258,7 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
       const currentSigner = await signer.getAddress();
       console.log(`Action: ${method} by ${currentSigner}`);
 
-      // FIX: OKX Wallet compatibility (Fee & Gas) for Confirm/Cancel actions
-      let overrides = {};
-      try {
-        const feeData = await provider.getFeeData();
-        if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
-           overrides.maxFeePerGas = feeData.maxFeePerGas;
-           overrides.maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
-        } else if (feeData.gasPrice) {
-           overrides.gasPrice = feeData.gasPrice;
-        }
-      } catch (e) { console.warn("Fee fetch failed", e); }
-
-      try {
-        // Contract methods: confirm(bytes32), cancel(bytes32)
-        const estimatedGas = await contract[method].estimateGas(id, overrides);
-        overrides.gasLimit = (estimatedGas * 120n) / 100n;
-      } catch (e) {
-        console.warn("Gas estimate failed", e);
-        overrides.gasLimit = 300000n; // Safe default for confirm/cancel
-      }
-
-      const tx = await contract[method](id, overrides);
+      const tx = await contract[method](id);
       await tx.wait(); 
 
       // 替换 alert 为 toast
@@ -310,13 +288,6 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
     }
   };
 
-  const handleManualRefresh = async () => {
-    if (isManualRefreshing || isInitialLoading) return;
-    setIsManualRefreshing(true);
-    await fetchOrders();
-    setIsManualRefreshing(false);
-  };
-
   const sortedInbox = [...inbox].sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
   const sortedOutbox = [...outbox].sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
 
@@ -326,14 +297,6 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
         <h3 className="text-white font-bold text-lg flex items-center gap-2">
            <FaInbox className="text-blue-500" /> {t.history}
         </h3>
-        <button
-          onClick={handleManualRefresh}
-          disabled={isManualRefreshing || isInitialLoading}
-          className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white transition-all disabled:opacity-50"
-          title={t.refresh || "Refresh"}
-        >
-          <FaSync className={`${isManualRefreshing ? 'animate-spin' : ''}`} />
-        </button>
       </div>
 
       {/* List Content */}

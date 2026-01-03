@@ -230,6 +230,18 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
       }
 
       // FIX: OKX Wallet often fails to estimate gas correctly or sets it too low.
+      // We manually estimate gas and add a buffer.
+      try {
+        // Estimate gas
+        const estimatedGas = await escrowContract.initiate.estimateGas(tokenAddress, receiver, weiAmount, overrides);
+        
+        // Add 20% buffer to gas limit
+        overrides.gasLimit = (estimatedGas * 120n) / 100n;
+      } catch (gasError) {
+        console.warn("Gas estimation failed, using fallback gas limit:", gasError);
+        // Fallback for OKX if estimation fails
+        overrides.gasLimit = 500000n; 
+      }
 
       const initiateTx = await escrowContract.initiate(tokenAddress, receiver, weiAmount, overrides);
       const receipt = await initiateTx.wait();
