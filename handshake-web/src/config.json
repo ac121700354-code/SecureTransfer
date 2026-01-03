@@ -2287,27 +2287,21 @@
     }
   },
   "11155111": {
-    "networkName": "Sepolia",
+    "networkName": "sepolia",
     "rpcUrl": "https://1rpc.io/sepolia",
     "explorer": "",
     "tokens": [
       {
         "symbol": "ETH",
         "name": "Ethereum",
-        "logo": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png",
+        "logo": "https://cryptologos.cc/logos/ethereum-eth-logo.svg?v=035",
         "address": "0x0000000000000000000000000000000000000000"
-      },
-      {
-        "symbol": "BTC",
-        "name": "Bitcoin",
-        "logo": "https://cryptologos.cc/logos/bitcoin-btc-logo.svg?v=035",
-        "address": "0xF3e89B53528f98E142649a22d14562FebdFFf86B"
       },
       {
         "symbol": "STP",
         "name": "SecureTransfer Token",
         "logo": "./tokens/bfr-logo.svg?v=12",
-        "address": "0x6228B26f55cBE9DD128E77B8e591C73C54040926"
+        "address": "0xD89834Be33eB2B213EEfa7EDf008Fcfa828362cD"
       },
       {
         "symbol": "USDT",
@@ -2320,11 +2314,23 @@
         "name": "USD Coin",
         "logo": "https://cryptologos.cc/logos/usd-coin-usdc-logo.svg?v=035",
         "address": "0xda9d4f9b69ac629241243741487b755c66a88193"
+      },
+      {
+        "symbol": "BTC",
+        "name": "Bitcoin",
+        "logo": "https://cryptologos.cc/logos/bitcoin-btc-logo.svg?v=035",
+        "address": "0x8e81547879549925bA8e3d23199859A302693259"
+      },
+      {
+        "symbol": "ETH",
+        "name": "Ethereum",
+        "logo": "https://cryptologos.cc/logos/ethereum-eth-logo.svg?v=035",
+        "address": "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14"
       }
     ],
     "contracts": {
       "BufferToken": {
-        "address": "0x6228B26f55cBE9DD128E77B8e591C73C54040926",
+        "address": "0xD89834Be33eB2B213EEfa7EDf008Fcfa828362cD",
         "abi": [
           {
             "inputs": [
@@ -2332,6 +2338,11 @@
                 "internalType": "address",
                 "name": "initialAdmin",
                 "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "initialSupply",
+                "type": "uint256"
               }
             ],
             "stateMutability": "nonpayable",
@@ -3477,7 +3488,7 @@
         ]
       },
       "EscrowProxy": {
-        "address": "0x7Fc201E821FA66E17095e2366E05F75860ee9Cd3",
+        "address": "0x4540A08760c7039D96EEbdb0826f94d2e3381A08",
         "abi": [
           {
             "inputs": [],
@@ -3647,6 +3658,25 @@
               {
                 "indexed": true,
                 "internalType": "address",
+                "name": "receiver",
+                "type": "address"
+              }
+            ],
+            "name": "TransferConfirmed",
+            "type": "event"
+          },
+          {
+            "anonymous": false,
+            "inputs": [
+              {
+                "indexed": true,
+                "internalType": "bytes32",
+                "name": "id",
+                "type": "bytes32"
+              },
+              {
+                "indexed": true,
+                "internalType": "address",
                 "name": "sender",
                 "type": "address"
               },
@@ -3654,6 +3684,12 @@
                 "indexed": true,
                 "internalType": "address",
                 "name": "receiver",
+                "type": "address"
+              },
+              {
+                "indexed": false,
+                "internalType": "address",
+                "name": "token",
                 "type": "address"
               },
               {
@@ -3674,6 +3710,30 @@
                 "internalType": "bytes32",
                 "name": "id",
                 "type": "bytes32"
+              },
+              {
+                "indexed": true,
+                "internalType": "address",
+                "name": "sender",
+                "type": "address"
+              },
+              {
+                "indexed": true,
+                "internalType": "address",
+                "name": "receiver",
+                "type": "address"
+              },
+              {
+                "indexed": false,
+                "internalType": "address",
+                "name": "token",
+                "type": "address"
+              },
+              {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
               },
               {
                 "indexed": false,
@@ -3710,32 +3770,6 @@
             ],
             "name": "Upgraded",
             "type": "event"
-          },
-          {
-            "inputs": [],
-            "name": "FEE_BPS",
-            "outputs": [
-              {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "MAX_PENDING_OUTBOX",
-            "outputs": [
-              {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
           },
           {
             "inputs": [],
@@ -3851,9 +3885,9 @@
                 "type": "uint256"
               },
               {
-                "internalType": "uint256",
-                "name": "expiresAt",
-                "type": "uint256"
+                "internalType": "bool",
+                "name": "isConfirmed",
+                "type": "bool"
               }
             ],
             "stateMutability": "view",
@@ -3886,8 +3920,21 @@
             "type": "function"
           },
           {
+            "inputs": [
+              {
+                "internalType": "bytes32",
+                "name": "_id",
+                "type": "bytes32"
+              }
+            ],
+            "name": "confirmOrder",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+          },
+          {
             "inputs": [],
-            "name": "defaultTTL",
+            "name": "feeBps",
             "outputs": [
               {
                 "internalType": "uint256",
@@ -3901,12 +3948,12 @@
           {
             "inputs": [
               {
-                "internalType": "bytes32",
-                "name": "_id",
-                "type": "bytes32"
+                "internalType": "bytes32[]",
+                "name": "_ids",
+                "type": "bytes32[]"
               }
             ],
-            "name": "expire",
+            "name": "forceExpireBatch",
             "outputs": [],
             "stateMutability": "nonpayable",
             "type": "function"
@@ -4016,9 +4063,9 @@
                     "type": "uint256"
                   },
                   {
-                    "internalType": "uint256",
-                    "name": "expiresAt",
-                    "type": "uint256"
+                    "internalType": "bool",
+                    "name": "isConfirmed",
+                    "type": "bool"
                   }
                 ],
                 "internalType": "struct SecureHandshakeUnlimitedInbox.TransferRecord[]",
@@ -4067,9 +4114,9 @@
                     "type": "uint256"
                   },
                   {
-                    "internalType": "uint256",
-                    "name": "expiresAt",
-                    "type": "uint256"
+                    "internalType": "bool",
+                    "name": "isConfirmed",
+                    "type": "bool"
                   }
                 ],
                 "internalType": "struct SecureHandshakeUnlimitedInbox.TransferRecord[]",
@@ -4240,6 +4287,19 @@
           },
           {
             "inputs": [],
+            "name": "maxPendingOutbox",
+            "outputs": [
+              {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+              }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+          },
+          {
+            "inputs": [],
             "name": "owner",
             "outputs": [
               {
@@ -4286,6 +4346,13 @@
           },
           {
             "inputs": [],
+            "name": "reinitializeV2",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+          },
+          {
+            "inputs": [],
             "name": "renounceOwnership",
             "outputs": [],
             "stateMutability": "nonpayable",
@@ -4295,11 +4362,24 @@
             "inputs": [
               {
                 "internalType": "uint256",
-                "name": "_ttl",
+                "name": "_bps",
                 "type": "uint256"
               }
             ],
-            "name": "setDefaultTTL",
+            "name": "setFeeBps",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+          },
+          {
+            "inputs": [
+              {
+                "internalType": "uint256",
+                "name": "_limit",
+                "type": "uint256"
+              }
+            ],
+            "name": "setMaxPendingOutbox",
             "outputs": [],
             "stateMutability": "nonpayable",
             "type": "function"
@@ -4408,7 +4488,7 @@
         ]
       },
       "MockAggregator": {
-        "address": "0x4a18DDE21f7Dc36db51892Bc1c2c1D51490179d3",
+        "address": "0x1752cb7D385f908D2667087d8c2D4f904219117d",
         "abi": [
           {
             "inputs": [
@@ -4525,6 +4605,18 @@
             "type": "function"
           }
         ]
+      },
+      "USDT": {
+        "address": "0x7169D38820dfd117C3FA1f22a697dBA58d90BA06"
+      },
+      "USDC": {
+        "address": "0xda9d4f9b69ac629241243741487b755c66a88193"
+      },
+      "BTC": {
+        "address": "0x8e81547879549925bA8e3d23199859A302693259"
+      },
+      "ETH": {
+        "address": "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14"
       }
     }
   }

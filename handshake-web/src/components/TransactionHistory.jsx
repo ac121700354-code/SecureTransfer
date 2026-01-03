@@ -12,197 +12,158 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
   const [lastScannedBlock, setLastScannedBlock] = useState(null);
   const [hasMore, setHasMore] = useState(true);
 
-  // Constants for pagination
-  const CHUNK_SIZE = 2000; // Reduced from 5000 to avoid RPC limits
-  const MIN_ITEMS_PER_PAGE = 5;
-
   // Reset history when account or network changes
   useEffect(() => {
     setHistory([]);
     setLastScannedBlock(null);
     setHasMore(true);
     setError(null);
+    // Initial fetch of all history
+    fetchAllHistory();
   }, [account, activeConfig]);
 
-  const fetchHistoryChunk = async (fromBlock, toBlock, contract, currentAccount) => {
-      // --- Simplified Strategy: Directly Scan TransferSettled ---
-      // This is efficient and naturally excludes PENDING orders.
-      // Assumes the contract emits TransferSettled with indexed user parameters.
-      
-      const filterSent = contract.filters.TransferSettled(null, currentAccount, null);
-      const filterReceived = contract.filters.TransferSettled(null, null, currentAccount);
-      
-      const [sentLogs, receivedLogs] = await Promise.all([
-        contract.queryFilter(filterSent, fromBlock, toBlock),
-        contract.queryFilter(filterReceived, fromBlock, toBlock)
-      ]);
-      
-      const allLogs = [...sentLogs, ...receivedLogs];
-      if (allLogs.length === 0) return [];
+  // Fetch all history from block 0 to latest
+  const fetchAllHistory = async () => {
+      if (!account || !provider || !activeConfig) return;
+      setLoading(true);
+      setError(null);
 
-      const items = await Promise.all(allLogs.map(async (log) => {
-          // Args: [id, sender, receiver, token, amount, action]
-          // Note: Be careful with args access. 
-          // If contract ABI has indexed params, they might be in different positions in `args` array vs non-indexed.
-          // But ethers v6 normalizes this in `args`.
+      try {
+          let runner = provider;
+          if (provider && !provider.call && provider.request) {
+              runner = new ethers.BrowserProvider(provider);
+          }
+          const escrowAddress = activeConfig.contracts.EscrowProxy.address;
+          const escrowAbi = activeConfig.contracts.EscrowProxy.abi;
+          const contract = new ethers.Contract(escrowAddress, escrowAbi, runner);
+
+          // Use a simple 0 to latest range
+          // If this fails on public RPCs due to range limit, we would need chunking.
+          // But user requested "Directly load all".
+          // UPDATE: User wants "Load All" but RPC limits block range to 50k.
+          // Solution: Auto-scan backwards in chunks of 40k until block 0.
           
-          let id, sender, receiver, tokenAddr, amount, action;
+          const currentBlock = await runner.getBlockNumber();
+          let scanEnd = currentBlock;
+          const SCAN_CHUNK_SIZE = 40000; // Safe margin below 50k
           
-          // Safe destructuring based on expected ABI
-          if (log.args.length >= 6) {
-              id = log.args[0];
-              sender = log.args[1];
-              receiver = log.args[2];
-              tokenAddr = log.args[3];
-              amount = log.args[4];
-              action = log.args[5];
-          } else {
-              // Fallback for older ABI or weird cases (e.g. Sepolia old contract)
-              // We try to access by name if available
-              id = log.args.id || log.args[0];
-              sender = log.args.sender || log.args[1];
-              receiver = log.args.receiver || log.args[2];
-              // Adjust for potential index shifts if some are not indexed in old ABI?
-              // Actually, queryFilter only works if we filter by indexed topics.
-              // If we found logs using filter(null, currentAccount), it means currentAccount matched an indexed topic.
+          // --- Strategy A: TransferSettled (New Contract / Indexed) ---
+          const filterSent = contract.filters.TransferSettled(null, account, null);
+          const filterReceived = contract.filters.TransferSettled(null, null, account);
+          
+          let allSettledLogs = [];
+          
+          // Loop backwards until 0
+          while (scanEnd > 0) {
+              const scanStart = Math.max(0, scanEnd - SCAN_CHUNK_SIZE);
               
-              tokenAddr = log.args.token || log.args[3];
-              amount = log.args.amount || log.args[4];
-              action = log.args.action || log.args[5] || "UNKNOWN";
+              // Parallel fetch for this chunk
+              const [chunkSent, chunkRecv] = await Promise.all([
+                  contract.queryFilter(filterSent, scanStart, scanEnd).catch(e => { console.warn("Chunk Sent Error", e); return []; }),
+                  contract.queryFilter(filterReceived, scanStart, scanEnd).catch(e => { console.warn("Chunk Recv Error", e); return []; })
+              ]);
+              
+              const chunkLogs = [...chunkSent, ...chunkRecv];
+              
+              if (chunkLogs.length > 0) {
+                  // Process Logs immediately to update UI incrementally
+                  const chunkItems = await Promise.all(chunkLogs.map(async (log) => {
+                      let id, sender, receiver, tokenAddr, amount, action;
+                      if (log.args.length >= 6) {
+                          [id, sender, receiver, tokenAddr, amount, action] = log.args;
+                      } else {
+                          id = log.args.id || log.args[0];
+                          sender = log.args.sender || log.args[1];
+                          receiver = log.args.receiver || log.args[2];
+                          tokenAddr = log.args.token || log.args[3];
+                          amount = log.args.amount || log.args[4];
+                          action = log.args.action || log.args[5] || "UNKNOWN";
+                      }
+                      
+                      const isSender = sender.toLowerCase() === account.toLowerCase();
+                      let tokenSymbol = "Unknown";
+                      let tokenDecimals = 18;
+                      const nativeToken = activeConfig.tokens.find(t => t.address === tokenAddr);
+                      if (nativeToken) tokenSymbol = nativeToken.symbol;
+
+                      const formattedAmount = ethers.formatUnits(amount, tokenDecimals);
+                      
+                      let status = "UNKNOWN";
+                      if (action === "RELEASED") status = "COMPLETED";
+                      else if (action === "CANCELLED") status = "CANCELLED";
+                      else if (action === "EXPIRED") status = "EXPIRED";
+
+                      const block = await log.getBlock();
+                      return {
+                          id,
+                          type: isSender ? 'send' : 'receive',
+                          counterparty: isSender ? receiver : sender,
+                          amount: formattedAmount,
+                          token: tokenSymbol,
+                          status,
+                          timestamp: block ? block.timestamp * 1000 : Date.now(),
+                          txHash: log.transactionHash
+                      };
+                  }));
+
+                  // Update State Incrementally
+                  setHistory(prev => {
+                      const combined = [...prev, ...chunkItems];
+                      const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
+                      return unique.sort((a, b) => b.timestamp - a.timestamp);
+                  });
+              }
+              
+              // Move cursor back
+              scanEnd = scanStart - 1;
+              
+              // Optional: Break if we hit genesis or some logical limit (e.g. contract deployment block if known)
+              if (scanEnd < 0) break;
           }
           
-          const isSender = sender.toLowerCase() === currentAccount.toLowerCase();
+          // Finished scanning all blocks
+          // State is already updated incrementally
           
-          let tokenSymbol = "Unknown";
-          let tokenDecimals = 18;
-          const nativeToken = activeConfig.tokens.find(t => t.address === tokenAddr);
-          if (nativeToken) tokenSymbol = nativeToken.symbol;
-
-          const formattedAmount = ethers.formatUnits(amount, tokenDecimals);
+          // (Removed old monolithic query logic)
+          /*
+          const [settledSent, settledRecv] = await Promise.all([
+              contract.queryFilter(filterSent, fromBlock, toBlock).catch(e => { console.warn("SettledSent Error", e); return []; }),
+              contract.queryFilter(filterReceived, fromBlock, toBlock).catch(e => { console.warn("SettledRecv Error", e); return []; })
+          ]);
           
-          // Map action to Status
-          let status = "UNKNOWN";
-          if (action === "RELEASED") status = "COMPLETED";
-          else if (action === "CANCELLED") status = "CANCELLED";
-          else if (action === "EXPIRED") status = "EXPIRED";
+          console.log("Logs found:", { 
+              settledSent: settledSent.length, 
+              settledRecv: settledRecv.length
+          });
 
-          const block = await log.getBlock();
+          const allSettledLogs = [...settledSent, ...settledRecv];
 
-          return {
-              id,
-              type: isSender ? 'send' : 'receive',
-              counterparty: isSender ? receiver : sender,
-              amount: formattedAmount,
-              token: tokenSymbol,
-              status,
-              timestamp: block ? block.timestamp * 1000 : Date.now(),
-              txHash: log.transactionHash
-          };
-      }));
-      return items;
+          // Process Settled Logs
+          const settledItems = await Promise.all(allSettledLogs.map(async (log) => {
+              // ...
+          }));
+
+          // Unique and Sort
+          const unique = Array.from(new Map(settledItems.map(item => [item.id, item])).values());
+          unique.sort((a, b) => b.timestamp - a.timestamp);
+          
+          setHistory(unique);
+          */
+
+      } catch (err) {
+          console.error("Failed to fetch history", err);
+          setError(err.message || "Failed to load history");
+      } finally {
+          setLoading(false);
+      }
   };
 
-  const loadMore = useCallback(async (isInitial = false) => {
-    if (!account || !provider || !activeConfig) return;
-    if (loading || loadingMore) return;
-
-    if (isInitial) setLoading(true);
-    else setLoadingMore(true);
-    
-    try {
-      let runner = provider;
-      if (provider && !provider.call && provider.request) {
-          runner = new ethers.BrowserProvider(provider);
-      }
-      const escrowAddress = activeConfig.contracts.EscrowProxy.address;
-      const escrowAbi = activeConfig.contracts.EscrowProxy.abi;
-      const contract = new ethers.Contract(escrowAddress, escrowAbi, runner);
-
-      let currentEnd = lastScannedBlock;
-      // If isInitial is true, force fetching the latest block number to restart scan from top
-      if (isInitial || currentEnd === null) {
-          currentEnd = await runner.getBlockNumber();
-      }
-
-      let newItems = [];
-      let scanCursor = currentEnd;
-      let chunksScanned = 0;
-
-      // Scan backwards until we find items or hit limit (3 chunks or genesis)
-      while (newItems.length < MIN_ITEMS_PER_PAGE && scanCursor > 0 && chunksScanned < 3) {
-          const currentStart = Math.max(0, scanCursor - CHUNK_SIZE);
-          // console.log(`Scanning ${currentStart} to ${scanCursor}`);
-          
-          const chunkItems = await fetchHistoryChunk(currentStart, scanCursor, contract, account);
-          
-          newItems = [...newItems, ...chunkItems];
-          
-          scanCursor = currentStart - 1;
-          chunksScanned++;
-      }
-
-      // Filter out duplicates just in case
-      setHistory(prev => {
-          const combined = [...prev, ...newItems];
-          // Unique by ID
-          const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
-          return unique.sort((a, b) => b.timestamp - a.timestamp);
-      });
-
-      setLastScannedBlock(scanCursor);
-      if (scanCursor <= 0) setHasMore(false);
-      
-    } catch (err) {
-      console.error("Failed to load history:", err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [account, provider, activeConfig, lastScannedBlock, loading, loadingMore]);
-
-
-  // Initial load
-  useEffect(() => {
-      // Only load if empty and no scan cursor set (fresh start)
-      if (lastScannedBlock === null && account) {
-          loadMore(true);
-      }
-  }, [account, activeConfig]); // Dependency on loadMore removed to avoid loop, handled by refs/state if needed, but safe here
-
-  // Silent refresh logic (optional: re-fetch latest chunk?)
-  // For pagination, "refresh" usually means reloading the top page.
-  // We can just re-scan the "latest" to "lastScannedBlock" range if we wanted to be perfect,
-  // but simpler to just do nothing or reset. 
-  // Let's reset on manual refresh trigger.
+  // Trigger refresh
   useEffect(() => {
     if (refreshTrigger) {
-       // Reset and reload
-       setHistory([]);
-       setLastScannedBlock(null);
-       setHasMore(true);
-       // We need a way to trigger loadMore after state update. 
-       // Effect dependency on lastScannedBlock might be tricky.
-       // Let's just manually call a "resetAndLoad" logic.
-       // Actually, setting lastScannedBlock to null will trigger the effect above? 
-       // No, because loadMore is not in dependency.
-       // Let's rely on the effect [account, activeConfig] for network switches.
-       // For refreshTrigger, we do manual:
-       setTimeout(() => {
-           setLastScannedBlock(null); // Reset cursor
-           // But we need to clear history first to avoid dups or UI glitch? 
-           // Actually, standard "Refresh" in pagination context often means "Reload from top".
-       }, 0);
+        fetchAllHistory();
     }
   }, [refreshTrigger]);
-  
-  // Re-trigger load when lastScannedBlock becomes null via refresh? 
-  // Let's just make a specific effect for it.
-  useEffect(() => {
-      if (refreshTrigger && lastScannedBlock === null) {
-          loadMore(true);
-      }
-  }, [refreshTrigger, lastScannedBlock]);
 
 
   if (!account) return null;
@@ -215,7 +176,7 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
           {t.transactionHistory || "Transaction History"}
         </h3>
         <button 
-          onClick={() => { setHistory([]); setLastScannedBlock(null); setHasMore(true); setTimeout(() => loadMore(true), 10); }} 
+          onClick={() => { fetchAllHistory(); }} 
           className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all"
           title="Reload"
         >
@@ -298,19 +259,6 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
               ))}
             </tbody>
           </table>
-          
-          {hasMore && (
-              <div className="py-4 text-center border-t border-white/5">
-                  <button 
-                    onClick={() => loadMore(false)} 
-                    disabled={loadingMore}
-                    className="text-xs font-bold text-blue-400 hover:text-blue-300 disabled:opacity-50 flex items-center justify-center gap-2 mx-auto"
-                  >
-                      {loadingMore ? <FaSpinner className="animate-spin" /> : null}
-                      {loadingMore ? t.loadingHistory : t.loadMoreHistory}
-                  </button>
-              </div>
-          )}
         </div>
       )}
       </div>

@@ -58,7 +58,7 @@ export const WhitepaperContentZh = () => (
     <section>
       <SectionTitle number="01" title="摘要" />
       <div className="bg-slate-800/20 p-6 rounded-2xl border border-white/5 leading-relaxed text-justify">
-        链上安全转账协议（On-Chain Escrow Transfer Protocol）是一项基于智能合约构建的非托管式区块链资产转账解决方案。本协议旨在解决区块链交易“不可逆、高风险”的核心痛点，为所有个人与企业用户提供一层额外的安全交易保障。我们不托管用户资金，而是通过代码逻辑实现了“链上时间锁”和“双向确认”机制，彻底消除转账焦虑。
+        链上安全转账协议（On-Chain Secure Transfer Protocol）是一项基于智能合约构建的非托管式区块链资产转账解决方案。本协议旨在解决区块链交易“不可逆、高风险”的核心痛点，为所有个人与企业用户提供一层额外的安全交易保障。我们不托管用户资金，而是通过代码逻辑实现了“链上时间锁”和“双向确认”机制，彻底消除转账焦虑。
       </div>
     </section>
 

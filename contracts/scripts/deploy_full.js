@@ -154,7 +154,7 @@ async function main() {
         // Define tokens to whitelist
         const TOKENS_TO_WHITELIST = [
             { symbol: "BNB/ETH (Native)", address: ethers.ZeroAddress },
-            { symbol: "BFR", address: bufferTokenAddress },
+            { symbol: "STP", address: bufferTokenAddress },
             { symbol: "USDT", address: currentNet.tokens.USDT },
             { symbol: "USDC", address: currentNet.tokens.USDC },
             { symbol: "BTC", address: currentNet.tokens.BTC },
