@@ -408,6 +408,13 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
                   {selectedToken.symbol}
                 </div>
               </div>
+              
+              {/* Fee Notice */}
+              <div className="flex justify-end mt-1">
+                 <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                    <FaCoins size={10} /> {t.feeNotice}
+                 </span>
+              </div>
             </div>
 
         <div className="pt-2">
