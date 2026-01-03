@@ -54,7 +54,7 @@ const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensC
           <div className="flex-1 min-w-0">
              <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
                <span className="font-mono text-slate-300 bg-slate-950/30 px-1 py-1 rounded border border-white/5 break-all select-all whitespace-nowrap tracking-tight">
-                 {(isOut ? order.receiver : order.sender)}
+                 {(isOut ? order.receiver : order.sender).slice(0, 6)}...{(isOut ? order.receiver : order.sender).slice(-4)}
                </span>
              </div>
              <div className="text-[10px] text-slate-500 font-medium mt-0.5 text-left ml-0.5">
