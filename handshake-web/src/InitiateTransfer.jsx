@@ -36,8 +36,60 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
   const [error, setError] = useState("");
   const [balance, setBalance] = useState("0");
   const [isBalanceLoading, setIsBalanceLoading] = useState(false);
+  const [tokenPrice, setTokenPrice] = useState(0); // USD Price of selected token
   
   const tokenDropdownRef = useRef(null);
+
+  // Fetch Token Price from Chainlink (via Escrow contract mapping)
+  useEffect(() => {
+    if (!activeConfig?.rpcUrl || !contracts?.EscrowProxy?.address) {
+        setTokenPrice(0);
+        return;
+    }
+
+    const fetchPrice = async () => {
+        try {
+            const provider = new ethers.JsonRpcProvider(activeConfig.rpcUrl);
+            const escrow = new ethers.Contract(contracts.EscrowProxy.address, ["function tokenPriceFeeds(address) view returns (address)"], provider);
+            
+            const tokenAddr = selectedToken.address || ethers.ZeroAddress;
+            const feedAddr = await escrow.tokenPriceFeeds(tokenAddr);
+            
+            if (!feedAddr || feedAddr === ethers.ZeroAddress) {
+                setTokenPrice(0);
+                return;
+            }
+
+            const feed = new ethers.Contract(feedAddr, ["function latestRoundData() view returns (uint80, int256, uint256, uint256, uint80)", "function decimals() view returns (uint8)"], provider);
+            const data = await feed.latestRoundData();
+            const decimals = await feed.decimals();
+            
+            // data[1] is answer (int256)
+            const price = parseFloat(ethers.formatUnits(data[1], decimals));
+            setTokenPrice(price);
+        } catch (e) {
+            console.warn("Fetch price failed:", e);
+            setTokenPrice(0);
+        }
+    };
+
+    fetchPrice();
+  }, [selectedToken, activeConfig, chainId, contracts]);
+
+  // Calculate Fee in USD
+  const feeDisplay = React.useMemo(() => {
+      if (!amount || isNaN(amount) || parseFloat(amount) <= 0) return null;
+      if (!tokenPrice) return null; // Can't calculate without price
+
+      const valUSD = parseFloat(amount) * tokenPrice;
+      let fee = valUSD * 0.001; // 0.1%
+      
+      // Clamp between $0.01 and $1.0
+      if (fee < 0.01) fee = 0.01;
+      if (fee > 1.0) fee = 1.0;
+      
+      return `$${fee.toFixed(2)}`;
+  }, [amount, tokenPrice]);
 
   // 点击外部关闭代币下拉框
   useEffect(() => {
@@ -412,7 +464,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
               {/* Fee Notice */}
               <div className="flex justify-end mt-1">
                  <span className="text-[10px] text-slate-500 flex items-center gap-1">
-                    <FaCoins size={10} /> {t.feeNotice}
+                    <FaCoins size={10} /> {feeDisplay ? `Fee: ≈ ${feeDisplay}` : t.feeNotice}
                  </span>
               </div>
             </div>
