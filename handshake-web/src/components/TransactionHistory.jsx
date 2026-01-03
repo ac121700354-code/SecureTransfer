@@ -260,7 +260,7 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
         ) : (
           <div className="overflow-x-auto">
             {/* Unified Card View */}
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {history.map((item) => (
                 <div key={item.id} className="bg-white/5 rounded-xl p-4 border border-white/5 space-y-3">
                   <div className="flex items-center justify-between">
