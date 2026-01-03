@@ -263,10 +263,10 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
       let errorMessage = t.transactionFailed;
       
       // 解析常见错误
+      const errorString = JSON.stringify(err);
+      
       if (err.code === 4001) { 
         errorMessage = t.cancelled;
-      } else if (JSON.stringify(err).includes("Token not whitelisted")) {
-        errorMessage = t.notWhitelisted;
       } else if (err.reason) {
         errorMessage = t.transactionFailed + ": " + err.reason;
       } else if (err.info && err.info.error && err.info.error.message) {
@@ -392,12 +392,6 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
               </div>
             </div>
 
-        {error && (
-          <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs p-3 rounded-lg flex items-center gap-2">
-            <FaExclamationTriangle className="shrink-0" /> {error}
-          </div>
-        )}
-
         <div className="pt-2">
            <button 
             onClick={handleNext} 
@@ -417,6 +411,12 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
             )}
           </button>
         </div>
+
+        {error && (
+          <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs p-3 rounded-lg flex items-center gap-2 mt-2">
+            <FaExclamationTriangle className="shrink-0" /> {error}
+          </div>
+        )}
 
         {/* Security Notice moved here */}
         <div className="mt-6 pt-6 border-t border-white/5">

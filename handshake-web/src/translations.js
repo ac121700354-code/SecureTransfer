@@ -89,6 +89,7 @@ export const translations = {
     cancelBtn: "Cancel Order",
     back: "Back",
     feeDescription: "Protocol fees: 90% Burned, 10% to DAO Treasury.",
+    minAmountError: "Transfer amount below minimum limit ($1)",
     switchLang: "CN"
   },
   zh: {
@@ -181,6 +182,7 @@ export const translations = {
     cancelBtn: "取消订单",
     back: "返回",
     feeDescription: "协议费用：90% 回购销毁，10% 进入 DAO 金库。",
+    minAmountError: "转账金额低于最小限额 ($1)",
     switchLang: "EN"
   }
 };

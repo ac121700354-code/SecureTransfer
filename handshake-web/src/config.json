@@ -14,7 +14,7 @@
         "symbol": "STP",
         "name": "SecureTransfer Token",
         "logo": "./tokens/bfr-logo.svg?v=12",
-        "address": "0x861a7A930d9e606a961fC36CDdC8F820e2d11A6f"
+        "address": "0x1e540D666acdEda1c3Ca3f98675A34f3F9756aA8"
       },
       {
         "symbol": "USDT",
@@ -43,7 +43,6 @@
     ],
     "contracts": {
       "BufferToken": {
-        "address": "0x1e540D666acdEda1c3Ca3f98675A34f3F9756aA8",
         "abi": [
           {
             "inputs": [
@@ -1596,11 +1595,6 @@
                 "internalType": "uint256",
                 "name": "createdAt",
                 "type": "uint256"
-              },
-              {
-                "internalType": "bool",
-                "name": "isConfirmed",
-                "type": "bool"
               }
             ],
             "stateMutability": "view",
@@ -1774,11 +1768,6 @@
                     "internalType": "uint256",
                     "name": "createdAt",
                     "type": "uint256"
-                  },
-                  {
-                    "internalType": "bool",
-                    "name": "isConfirmed",
-                    "type": "bool"
                   }
                 ],
                 "internalType": "struct SecureHandshakeUnlimitedInbox.TransferRecord[]",
@@ -1825,11 +1814,6 @@
                     "internalType": "uint256",
                     "name": "createdAt",
                     "type": "uint256"
-                  },
-                  {
-                    "internalType": "bool",
-                    "name": "isConfirmed",
-                    "type": "bool"
                   }
                 ],
                 "internalType": "struct SecureHandshakeUnlimitedInbox.TransferRecord[]",

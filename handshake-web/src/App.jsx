@@ -4,7 +4,7 @@ import InitiateTransfer from './InitiateTransfer';
 import OrderList from './OrderList';
 import TransactionHistory from './components/TransactionHistory';
 import IntroSection from './components/IntroSection';
-import { FaWallet, FaShieldAlt, FaSignOutAlt, FaExchangeAlt, FaNetworkWired, FaEthereum, FaLayerGroup, FaChevronDown, FaSpinner, FaGlobe, FaBook } from 'react-icons/fa';
+import { FaWallet, FaShieldAlt, FaSignOutAlt, FaExchangeAlt, FaNetworkWired, FaEthereum, FaLayerGroup, FaChevronDown, FaSpinner, FaGlobe, FaBook, FaRegCopy } from 'react-icons/fa';
 import { SiBinance } from 'react-icons/si';
 import WalletModal from './components/WalletModal';
 import { ToastProvider, useToast } from './components/Toast';
@@ -230,10 +230,21 @@ const ConnectButton = ({ account, onOpenModal, handleDisconnect, isConnecting })
   }
   
   if (account) {
+    const handleCopy = () => {
+      navigator.clipboard.writeText(account);
+      toast.success(t.copied || "Copied!");
+    };
+
     return (
       <div className="flex items-center bg-slate-800/50 border border-white/5 rounded-full p-1 pl-3 pr-1 shadow-sm transition-all hover:bg-slate-800">
-        <div className="flex flex-col items-end mr-2 leading-tight">
-           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{t.detected}</span>
+        <div 
+            className="flex flex-col items-end mr-2 leading-tight cursor-pointer group"
+            onClick={handleCopy}
+            title="Click to copy address"
+        >
+           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">
+             {t.detected} <FaRegCopy className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-500" size={10} />
+           </span>
            <span className="text-sm font-mono text-blue-400 font-semibold">{account.slice(0, 6)}...{account.slice(-4)}</span>
         </div>
         <div className="flex gap-1">
@@ -657,14 +668,6 @@ export default function App() {
                           activeConfig={activeConfig}
                           chainId={chainId}
                       />
-                      
-                      <TransactionHistory 
-                          account={account} 
-                          provider={walletProvider}
-                          chainId={chainId}
-                          activeConfig={activeConfig}
-                          refreshTrigger={refreshTrigger}
-                      />
                     </ErrorBoundary>
                   ) : (
                     <div className="min-h-[700px] h-full flex flex-col items-center justify-center bg-slate-800/30 rounded-[2rem] border border-dashed border-slate-700/50">
@@ -676,8 +679,22 @@ export default function App() {
                     </div>
                   )}
                 </div>
-              </div>
-            </main>
+              
+              {account && (
+                <div className="lg:col-span-12">
+                   <ErrorBoundary>
+                      <TransactionHistory 
+                          account={account} 
+                          provider={walletProvider}
+                          chainId={chainId}
+                          activeConfig={activeConfig}
+                          refreshTrigger={refreshTrigger}
+                      />
+                   </ErrorBoundary>
+                </div>
+              )}
+            </div>
+          </main>
             
             <footer className="max-w-7xl mx-auto px-4 md:px-6 pb-8 text-center">
               <p className="text-[10px] text-slate-600 mt-2">

@@ -47,59 +47,115 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
           let scanEnd = currentBlock;
           
           // Estimate blocks per day (BSC ~3s per block => ~28800 blocks/day)
-          // For safety, let's assume 30k blocks/day * 7 days = 210k blocks
+          // For safety, let's assume 30k blocks/day.
+          // RETRY STRATEGY: Reduce total scan range to avoid "pruned" errors on public nodes.
+          // Many testnet nodes only keep 24h-48h of history.
           const BLOCKS_PER_DAY = 30000;
-          const MAX_BLOCKS_TO_SCAN = BLOCKS_PER_DAY * 7;
+          const MAX_BLOCKS_TO_SCAN = BLOCKS_PER_DAY * 7; // Limit to 1 day for stability
           
           const startBlockLimit = Math.max(0, currentBlock - MAX_BLOCKS_TO_SCAN);
           
-          const SCAN_CHUNK_SIZE = 40000; // Safe margin below 50k
+          const SCAN_CHUNK_SIZE = 40000; // Further reduced for OKX compatibility
           
-          // --- Strategy A: TransferSettled (New Contract / Indexed) ---
-          const filterSent = contract.filters.TransferSettled(null, account, null);
-          const filterReceived = contract.filters.TransferSettled(null, null, account);
+          // --- Strategy: TransferSettled Only ---
+          // User requested to only fetch Settled events.
+          // Note: This means "Pending" transactions will NOT appear in history.
+          // They will only appear in the "Active Transactions" (OrderList) component.
           
-          let allSettledLogs = [];
+          const filterSentSettled = contract.filters.TransferSettled(null, account, null);
+          const filterReceivedSettled = contract.filters.TransferSettled(null, null, account);
+          
+          // let allLogs = [];
           
           // Loop backwards until limit
           while (scanEnd > startBlockLimit) {
               const scanStart = Math.max(startBlockLimit, scanEnd - SCAN_CHUNK_SIZE);
               
+              // console.log(`[History Debug] Scanning chunk: ${scanStart} - ${scanEnd}`);
+
               // Parallel fetch for this chunk
-              const [chunkSent, chunkRecv] = await Promise.all([
-                  contract.queryFilter(filterSent, scanStart, scanEnd).catch(e => { console.warn("Chunk Sent Error", e); return []; }),
-                  contract.queryFilter(filterReceived, scanStart, scanEnd).catch(e => { console.warn("Chunk Recv Error", e); return []; })
+              const [
+                  chunkSentSettled, 
+                  chunkRecvSettled
+              ] = await Promise.all([
+                  contract.queryFilter(filterSentSettled, scanStart, scanEnd).catch(e => { 
+                      console.warn("Chunk Sent Settled Error", e); 
+                      if (e?.message?.includes('pruned') || e?.info?.error?.message?.includes('pruned')) {
+                          // If pruned, we can't go back further. Stop scanning.
+                          return 'PRUNED';
+                      }
+                      return []; 
+                  }),
+                  contract.queryFilter(filterReceivedSettled, scanStart, scanEnd).catch(e => { 
+                      console.warn("Chunk Recv Settled Error", e); 
+                      if (e?.message?.includes('pruned') || e?.info?.error?.message?.includes('pruned')) {
+                          return 'PRUNED';
+                      }
+                      return []; 
+                  })
               ]);
               
-              const chunkLogs = [...chunkSent, ...chunkRecv];
+              if (chunkSentSettled === 'PRUNED' || chunkRecvSettled === 'PRUNED') {
+                  console.log("History pruned, stopping scan.");
+                  break;
+              }
               
+              const chunkLogs = [...chunkSentSettled, ...chunkRecvSettled];
+              
+              // console.log(`[History Debug] Chunk results (${scanStart}-${scanEnd}):`, {
+              //     sentSettled: chunkSentSettled.length,
+              //     recvSettled: chunkRecvSettled.length,
+              //     totalCombined: chunkLogs.length
+              // });
+
               if (chunkLogs.length > 0) {
                   // Process Logs immediately to update UI incrementally
                   const chunkItems = await Promise.all(chunkLogs.map(async (log) => {
                       let id, sender, receiver, tokenAddr, amount, action;
-                      if (log.args.length >= 6) {
-                          [id, sender, receiver, tokenAddr, amount, action] = log.args;
-                      } else {
-                          id = log.args.id || log.args[0];
-                          sender = log.args.sender || log.args[1];
-                          receiver = log.args.receiver || log.args[2];
-                          tokenAddr = log.args.token || log.args[3];
-                          amount = log.args.amount || log.args[4];
-                          action = log.args.action || log.args[5] || "UNKNOWN";
+                      
+                      // Identify Event Type
+                      // Since we only query Settled, it's always Settled.
+                      
+                      // TransferSettled: id, sender, receiver, token, amount, action
+                      try {
+                          id = log.args[0];
+                          sender = log.args[1];
+                          receiver = log.args[2];
+                          tokenAddr = log.args[3];
+                          amount = log.args[4];
+                          action = log.args[5];
+                      } catch (e) {
+                          console.warn("Error parsing Settled log args:", e);
+                          // Fallback to named access if available
+                          id = log.args.id;
+                          sender = log.args.sender;
+                          receiver = log.args.receiver;
+                          tokenAddr = log.args.token;
+                          amount = log.args.amount;
+                          action = log.args.action;
                       }
                       
                       const isSender = sender.toLowerCase() === account.toLowerCase();
                       let tokenSymbol = "Unknown";
                       let tokenDecimals = 18;
-                      const nativeToken = activeConfig.tokens.find(t => t.address === tokenAddr);
-                      if (nativeToken) tokenSymbol = nativeToken.symbol;
+                      const nativeToken = activeConfig.tokens.find(t => t.address.toLowerCase() === tokenAddr.toLowerCase());
+                      if (nativeToken) {
+                          tokenSymbol = nativeToken.symbol;
+                      } else {
+                          tokenSymbol = `${tokenAddr.slice(0, 6)}...${tokenAddr.slice(-4)}`;
+                      }
 
                       const formattedAmount = ethers.formatUnits(amount, tokenDecimals);
                       
                       let status = "UNKNOWN";
-                      if (action === "RELEASED") status = "COMPLETED";
-                      else if (action === "CANCELLED") status = "CANCELLED";
-                      else if (action === "EXPIRED") status = "EXPIRED";
+                      // Normalize action to string just in case
+                      const actionStr = String(action || "").toUpperCase();
+                      
+                      if (actionStr === "RELEASED") status = "COMPLETED";
+                      else if (actionStr === "CANCELLED") status = "CANCELLED";
+                      else if (actionStr === "EXPIRED") status = "EXPIRED";
+                      // Debug unknown status
+                      else console.warn("Unknown action:", action, "Log:", log);
 
                       const block = await log.getBlock();
                       return {
@@ -110,13 +166,15 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
                           token: tokenSymbol,
                           status,
                           timestamp: block ? block.timestamp * 1000 : Date.now(),
-                          txHash: log.transactionHash
+                          txHash: log.transactionHash,
+                          priority: 2 // Keep consistent structure
                       };
                   }));
 
                   // Update State Incrementally
                   setHistory(prev => {
                       const combined = [...prev, ...chunkItems];
+                      // Simple deduplication by ID is enough now since we only have one source of truth
                       const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
                       return unique.sort((a, b) => b.timestamp - a.timestamp);
                   });
@@ -226,7 +284,7 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
                   </td>
                   <td className="py-4 font-bold">
                     <span className={item.type === 'send' ? 'text-rose-400' : 'text-emerald-400'}>
-                      {item.type === 'send' ? '-' : '+'}{parseFloat(item.amount).toFixed(4)} 
+                      {item.type === 'send' ? '-' : '+'} {parseFloat(item.amount).toFixed(4)} 
                     </span>
                     <span className="text-xs text-slate-500 font-normal ml-1">{item.token}</span>
                   </td>

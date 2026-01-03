@@ -26,11 +26,13 @@ const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensC
       
       // Fully rely on tokensConfig
       if (tokensConfig) {
-          const token = tokensConfig.find(t => t.address === addr);
+          const token = tokensConfig.find(t => t.address.toLowerCase() === addr.toLowerCase());
           if (token) return token.symbol;
       }
 
-      return "Unknown";
+      // Fallback: If not found in config, return short address for debugging
+      console.warn("Token not found in config:", addr);
+      return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
   const formatDate = (ts) => {
@@ -129,7 +131,15 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
         const details = await Promise.all(ids.map(async (id) => {
           try {
             const record = await contract.activeTransfers(id);
-            // record: [sender, receiver, token, amount, createdAt]
+            // record: [sender, receiver, token, amount, createdAt, isConfirmed]
+            // Note: Contract now returns 6 values (isConfirmed added back or not removed in ABI?)
+            // Actually, based on latest revert, we removed isConfirmed from STRUCT but ABI might still have it if artifacts weren't updated perfectly?
+            // Let's check the return value length.
+            
+            // If we strictly follow the contract we deployed:
+            // struct TransferRecord { sender, receiver, token, amount, createdAt }
+            // So it returns 5 values.
+            
             return {
               id: id,
               sender: record[0],
@@ -137,7 +147,6 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
               token: record[2],
               amount: record[3],
               createdAt: record[4],
-              // expiresAt removed
             };
           } catch (e) {
             console.error("Failed to fetch order:", id, e);
