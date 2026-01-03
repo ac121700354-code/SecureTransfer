@@ -26,11 +26,13 @@ const IntroSection = () => {
           <div className="bg-slate-900/60 p-6 rounded-2xl border border-blue-500/20 relative group hover:border-blue-500/40 transition-all hover:transform hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-900/20">
              <div className="absolute -top-3 -right-3 w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center border border-white/10 text-slate-400 font-bold text-sm shadow-lg z-10">1</div>
              
-             <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-400 mb-4 group-hover:scale-110 transition-transform duration-300">
-               <FaLock size={24} />
+             <div className="flex items-center gap-3 mb-4">
+               <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform duration-300">
+                 <FaLock size={24} />
+               </div>
+               <h3 className="text-lg font-bold text-white">{t.step1Title}</h3>
              </div>
              
-             <h3 className="text-lg font-bold text-white mb-3">{t.step1Title}</h3>
              <p className="text-xs md:text-sm text-slate-400 leading-relaxed">
                {t.step1Desc}
              </p>
@@ -45,11 +47,13 @@ const IntroSection = () => {
           <div className="bg-slate-900/60 p-6 rounded-2xl border border-blue-500/20 relative group hover:border-blue-500/40 transition-all hover:transform hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-900/20">
              <div className="absolute -top-3 -right-3 w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center border border-white/10 text-slate-400 font-bold text-sm shadow-lg z-10">2</div>
              
-             <div className="w-12 h-12 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-400 mb-4 group-hover:scale-110 transition-transform duration-300">
-               <FaBell size={24} />
+             <div className="flex items-center gap-3 mb-4">
+               <div className="w-12 h-12 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform duration-300">
+                 <FaBell size={24} />
+               </div>
+               <h3 className="text-lg font-bold text-white">{t.step2Title}</h3>
              </div>
              
-             <h3 className="text-lg font-bold text-white mb-3">{t.step2Title}</h3>
              <p className="text-xs md:text-sm text-slate-400 leading-relaxed">
                {t.step2Desc}
              </p>
@@ -64,11 +68,13 @@ const IntroSection = () => {
           <div className="bg-slate-900/60 p-6 rounded-2xl border border-blue-500/20 relative group hover:border-blue-500/40 transition-all hover:transform hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-900/20">
              <div className="absolute -top-3 -right-3 w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center border border-white/10 text-slate-400 font-bold text-sm shadow-lg z-10">3</div>
              
-             <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-400 mb-4 group-hover:scale-110 transition-transform duration-300">
-               <FaCheckCircle size={24} />
+             <div className="flex items-center gap-3 mb-4">
+               <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform duration-300">
+                 <FaCheckCircle size={24} />
+               </div>
+               <h3 className="text-lg font-bold text-white">{t.step3Title}</h3>
              </div>
              
-             <h3 className="text-lg font-bold text-white mb-3">{t.step3Title}</h3>
              <p className="text-xs md:text-sm text-slate-400 leading-relaxed">
                {t.step3Desc}
              </p>

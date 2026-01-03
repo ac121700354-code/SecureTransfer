@@ -127,12 +127,22 @@ export const WhitepaperContentZh = () => (
       
       <h4 className="font-bold text-white mt-4 mb-2">4.1 协议服务费</h4>
       <p className="mb-4">协议将对每笔成功完成的安全转账收取微量服务费（如 0.1% 或固定金额），用于：</p>
-      <div className="mb-6">
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-8 rounded-2xl border border-white/5 text-center relative overflow-hidden group max-w-md mx-auto shadow-2xl shadow-emerald-500/10">
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 max-w-3xl mx-auto">
+        {/* 90% Burn */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-white/5 text-center relative overflow-hidden group shadow-xl shadow-emerald-500/5 hover:border-emerald-500/20 transition-all">
           <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
-          <div className="text-5xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">100%</div>
-          <div className="text-sm text-emerald-400 uppercase tracking-[0.2em] font-bold mb-3">回购销毁</div>
-          <p className="text-sm text-slate-400 leading-relaxed">协议所有收入将全部用于在二级市场购买协议代币 (STP) 并进行永久销毁，实现极致通缩。</p>
+          <div className="text-4xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">90%</div>
+          <div className="text-xs text-emerald-400 uppercase tracking-widest font-bold mb-2">回购销毁</div>
+          <p className="text-xs text-slate-400 leading-relaxed">大部分协议收入用于在二级市场回购 STP 并销毁，实现持续通缩，提升代币价值。</p>
+        </div>
+
+        {/* 10% DAO */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-white/5 text-center relative overflow-hidden group shadow-xl shadow-blue-500/5 hover:border-blue-500/20 transition-all">
+          <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
+          <div className="text-4xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">10%</div>
+          <div className="text-xs text-blue-400 uppercase tracking-widest font-bold mb-2">DAO 财库</div>
+          <p className="text-xs text-slate-400 leading-relaxed">进入 DAO 财库钱包，用于支持社区治理提案、长期生态激励及项目可持续发展。</p>
         </div>
       </div>
 
@@ -270,12 +280,22 @@ export const WhitepaperContentEn = () => (
       
       <h4 className="font-bold text-white mt-4 mb-2">4.1 Protocol Fees</h4>
       <p className="mb-4">The protocol charges a small fee (e.g. 0.1%) on every successful secured transfer, which is used for:</p>
-      <div className="mb-6">
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-8 rounded-2xl border border-white/5 text-center relative overflow-hidden group max-w-md mx-auto shadow-2xl shadow-emerald-500/10">
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 max-w-3xl mx-auto">
+        {/* 90% Burn */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-white/5 text-center relative overflow-hidden group shadow-xl shadow-emerald-500/5 hover:border-emerald-500/20 transition-all">
           <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
-          <div className="text-5xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">100%</div>
-          <div className="text-sm text-emerald-400 uppercase tracking-[0.2em] font-bold mb-3">Buyback & Burn</div>
-          <p className="text-sm text-slate-400 leading-relaxed">All protocol revenue is used to buy back STP tokens from the secondary market and permanently burn them, achieving ultimate deflation.</p>
+          <div className="text-4xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">90%</div>
+          <div className="text-xs text-emerald-400 uppercase tracking-widest font-bold mb-2">Buyback & Burn</div>
+          <p className="text-xs text-slate-400 leading-relaxed">The majority of protocol revenue is used to buy back STP tokens from the secondary market and burn them, achieving continuous deflation.</p>
+        </div>
+
+        {/* 10% DAO */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-white/5 text-center relative overflow-hidden group shadow-xl shadow-blue-500/5 hover:border-blue-500/20 transition-all">
+          <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
+          <div className="text-4xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">10%</div>
+          <div className="text-xs text-blue-400 uppercase tracking-widest font-bold mb-2">DAO Treasury</div>
+          <p className="text-xs text-slate-400 leading-relaxed">Allocated to the DAO Treasury wallet to support community governance proposals, long-term incentives, and sustainable development.</p>
         </div>
       </div>
 
