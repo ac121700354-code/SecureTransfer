@@ -23,37 +23,32 @@ async function main() {
     console.log(`Deploying with account: ${deployer.address}`);
 
     // --- 1. Deploy BufferToken ---
-    // console.log("\n1. Deploying BufferToken...");
-    // const BufferToken = await ethers.getContractFactory("BufferToken");
+    console.log("\n1. Deploying BufferToken...");
+    const BufferToken = await ethers.getContractFactory("BufferToken");
     
-    // // Determine Initial Supply
-    // // BNB Chain (Mainnet/Testnet) = 100M
-    // // Testnets (Sepolia/Hardhat) = 100M (For testing convenience)
-    // // Other Mainnets (ETH/Arb) = 0 (Side chain mode)
-    // let initialSupply = 0n;
-    // if (network.name.includes("bnb") || network.name.includes("sepolia") || network.name === "hardhat") {
-    //     initialSupply = ethers.parseUnits("100000000", 18);
-    //     // console.log(`  - Minting 100M STP (Chain: ${network.name})`);
-    // } else {
-    //     // console.log(`  - Side Chain Mode: Initial Supply 0 (Chain: ${network.name})`);
-    // }
+    // Determine Initial Supply
+    // BNB Chain (Mainnet/Testnet) = 100M
+    // Testnets (Sepolia/Hardhat) = 100M (For testing convenience)
+    // Other Mainnets (ETH/Arb) = 0 (Side chain mode)
+    let initialSupply = 0n;
+    if (network.name.includes("bnb") || network.name.includes("sepolia") || network.name === "hardhat") {
+        initialSupply = ethers.parseUnits("100000000", 18);
+        console.log(`  - Minting 100M STP (Chain: ${network.name})`);
+    } else {
+        console.log(`  - Side Chain Mode: Initial Supply 0 (Chain: ${network.name})`);
+    }
 
-    // const bufferToken = await BufferToken.deploy(deployer.address, initialSupply);
-    // await bufferToken.waitForDeployment();
-    // const bufferTokenAddress = await bufferToken.getAddress();
-    // console.log(`BufferToken deployed to: ${bufferTokenAddress}`);
-
-    // REUSE Existing BufferToken from previous failed run
-    const bufferTokenAddress = "0x1e540D666acdEda1c3Ca3f98675A34f3F9756aA8";
-    console.log(`Using existing BufferToken: ${bufferTokenAddress}`);
+    const bufferToken = await BufferToken.deploy(deployer.address, initialSupply);
+    await bufferToken.waitForDeployment();
+    const bufferTokenAddress = await bufferToken.getAddress();
+    console.log(`BufferToken deployed to: ${bufferTokenAddress}`);
 
     // --- 2. Distribute Initial Tokens ---
-    console.log("\n2. Skipping Token Distribution (Already done)...");
+    console.log("\n2. Distributing Tokens based on distribution_config.js...");
     
     // We assume the deployer holds all tokens initially (minted in step 1)
     // distributionConfig.distribution contains the plan
     
-    /*
     for (const [key, info] of Object.entries(distributionConfig.distribution)) {
         // Skip if address is invalid or placeholder
         if (!info.address || info.address.startsWith("0x...") || !ethers.isAddress(info.address)) {
@@ -79,47 +74,35 @@ async function main() {
     // Check remaining balance of deployer (should be 0 if all distributed, or remainder)
     const deployerBalance = await bufferToken.balanceOf(deployer.address);
     console.log(`  Deployer remaining balance: ${ethers.formatUnits(deployerBalance, 18)} STP`);
-    */
 
     // --- 3. Deploy FeeCollector ---
-    // console.log("\n3. Deploying FeeCollector...");
-    // const FeeCollector = await ethers.getContractFactory("FeeCollector");
-    // // Use DAO_WALLET from env as DAO Treasury
-    // const daoTreasury = process.env.DAO_WALLET || deployer.address;
+    console.log("\n3. Deploying FeeCollector...");
+    const FeeCollector = await ethers.getContractFactory("FeeCollector");
+    // Use DAO_WALLET from env as DAO Treasury
+    const daoTreasury = process.env.DAO_WALLET || deployer.address;
     
-    // console.log(`  FeeCollector DAO Treasury: ${daoTreasury}`);
+    console.log(`  FeeCollector DAO Treasury: ${daoTreasury}`);
 
-    // const feeCollector = FeeCollector.deploy(
-    //     bufferTokenAddress,
-    //     ROUTER_ADDRESS,
-    //     WBNB_ADDRESS,
-    //     daoTreasury
-    // );
-    // await (await feeCollector).waitForDeployment();
-    // const feeCollectorAddress = await (await feeCollector).getAddress();
-    // console.log(`FeeCollector deployed to: ${feeCollectorAddress}`);
-
-    // REUSE Existing FeeCollector
-    const feeCollectorAddress = "0x44c7897dB367C1c3F7815187970349362416C5B8";
-    console.log(`Using existing FeeCollector: ${feeCollectorAddress}`);
+    const feeCollector = FeeCollector.deploy(
+        bufferTokenAddress,
+        ROUTER_ADDRESS,
+        WBNB_ADDRESS,
+        daoTreasury
+    );
+    await (await feeCollector).waitForDeployment();
+    const feeCollectorAddress = await (await feeCollector).getAddress();
+    console.log(`FeeCollector deployed to: ${feeCollectorAddress}`);
 
     // --- 4. Deploy Escrow (UUPS Proxy) ---
     console.log("\n4. Deploying Escrow (UUPS)...");
     const EscrowProxy = await ethers.getContractFactory("SecureHandshakeUnlimitedInbox");
     
-    let escrowImplAddress = process.env.ESCROW_IMPL;
-    
-    if (!escrowImplAddress) {
-        console.log("  Deploying new Implementation...");
-        const escrowImpl = await EscrowProxy.deploy();
-        console.log(`  > Tx Sent! Hash: ${escrowImpl.deploymentTransaction().hash}`);
-        console.log("  > Waiting for confirmation...");
-        await escrowImpl.waitForDeployment();
-        escrowImplAddress = await escrowImpl.getAddress();
-        console.log(`  > Implementation deployed to: ${escrowImplAddress}`);
-    } else {
-        console.log(`  Using existing Implementation: ${escrowImplAddress}`);
-    }
+    // Always deploy new implementation for clean state
+    console.log("  Deploying new Implementation...");
+    const escrowImpl = await EscrowProxy.deploy();
+    await escrowImpl.waitForDeployment();
+    const escrowImplAddress = await escrowImpl.getAddress();
+    console.log(`  > Implementation deployed to: ${escrowImplAddress}`);
     
     // Deploy ERC1967 Proxy
     console.log("  Deploying ERC1967 Proxy...");
@@ -130,7 +113,6 @@ async function main() {
     ]);
     
     const proxy = await ERC1967Proxy.deploy(escrowImplAddress, initData);
-    console.log(`  > Tx Sent! Hash: ${proxy.deploymentTransaction().hash}`);
     await proxy.waitForDeployment();
     const escrowAddress = await proxy.getAddress();
     console.log(`Escrow Proxy deployed to: ${escrowAddress}`);
