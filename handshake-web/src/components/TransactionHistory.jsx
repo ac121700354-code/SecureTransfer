@@ -250,7 +250,7 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="w-full">
         {loading && history.length === 0 ? (
           <div className="text-center py-10 text-slate-500">{t.loadingHistory}</div>
         ) : error ? (
