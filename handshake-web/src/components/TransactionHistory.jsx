@@ -259,74 +259,66 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
           <div className="text-center py-10 text-slate-500">{t.noTransactionHistory}</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="text-xs text-slate-500 uppercase tracking-wider border-b border-white/5">
-                <th className="pb-3 pl-2">{t.type}</th>
-                <th className="pb-3">{t.counterparty}</th>
-                <th className="pb-3">{t.amount}</th>
-                <th className="pb-3">{t.status}</th>
-                <th className="pb-3">{t.time}</th>
-                <th className="pb-3 text-right pr-6">{t.link}</th>
-              </tr>
-            </thead>
-            <tbody className="text-sm">
+            {/* Unified Card View */}
+            <div className="space-y-4">
               {history.map((item) => (
-                <tr key={item.id} className="group hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
-                  <td className="py-4 pl-2">
-                    <div className={`flex items-center gap-2 font-bold ${item.type === 'send' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                <div key={item.id} className="bg-white/5 rounded-xl p-4 border border-white/5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className={`flex items-center gap-2 font-bold text-sm ${item.type === 'send' ? 'text-rose-400' : 'text-emerald-400'}`}>
                         {item.type === 'send' ? <FaArrowUp size={12} /> : <FaArrowDown size={12} />}
                         {item.type === 'send' ? t.sent : t.received}
                     </div>
-                  </td>
-                  <td className="py-4 font-mono text-slate-400">
-                    {item.counterparty.slice(0, 6)}...{item.counterparty.slice(-4)}
-                  </td>
-                  <td className="py-4 font-bold">
-                    <span className={item.type === 'send' ? 'text-rose-400' : 'text-emerald-400'}>
-                      {item.type === 'send' ? '-' : '+'} {parseFloat(item.amount).toFixed(4)} 
-                    </span>
-                    <span className="text-xs text-slate-500 font-normal ml-1">{item.token}</span>
-                  </td>
-                  <td className="py-4">
                     <span className={`
-                        inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide
+                        inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide
                         ${item.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : ''}
                         ${item.status === 'PENDING' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : ''}
                         ${item.status === 'CANCELLED' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : ''}
                         ${item.status === 'EXPIRED' ? 'bg-slate-500/10 text-slate-400 border border-slate-500/20' : ''}
                         ${item.status === 'UNKNOWN' ? 'bg-slate-500/10 text-slate-400' : ''}
                     `}>
-                        {item.status === 'COMPLETED' && <FaCheckCircle />}
-                        {item.status === 'PENDING' && <FaClock />}
-                        {item.status === 'CANCELLED' && <FaBan />}
-                        {item.status === 'EXPIRED' && <FaTimesCircle />}
+                        {item.status === 'COMPLETED' && <FaCheckCircle size={10} />}
+                        {item.status === 'PENDING' && <FaClock size={10} />}
+                        {item.status === 'CANCELLED' && <FaBan size={10} />}
+                        {item.status === 'EXPIRED' && <FaTimesCircle size={10} />}
                         {item.status === 'COMPLETED' ? t.statusCompleted : 
                          item.status === 'PENDING' ? t.statusPending : 
                          item.status === 'CANCELLED' ? t.statusCancelled : 
                          item.status === 'EXPIRED' ? t.statusExpired : 
                          item.status}
                     </span>
-                  </td>
-                  <td className="py-4 text-slate-500 text-xs">
-                    {new Date(item.timestamp).toLocaleString()}
-                  </td>
-                  <td className="py-4 text-right pr-6">
-                    <a 
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="text-slate-400 text-xs">
+                      {t.counterparty}: <span className="font-mono text-slate-300">{item.counterparty.slice(0, 6)}...{item.counterparty.slice(-4)}</span>
+                    </div>
+                    <div className="text-slate-500 text-xs">
+                       {new Date(item.timestamp).toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                     <div className="font-bold">
+                        <span className={item.type === 'send' ? 'text-rose-400' : 'text-emerald-400'}>
+                          {item.type === 'send' ? '-' : '+'} {parseFloat(item.amount).toFixed(4)} 
+                        </span>
+                        <span className="text-xs text-slate-500 font-normal ml-1">{item.token}</span>
+                     </div>
+                     <a 
                         href={`${activeConfig.explorer || '#'}?tx=${item.txHash}`} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="text-blue-400 hover:text-blue-300 opacity-0 group-hover:opacity-100 transition-opacity inline-flex justify-end"
+                        className="text-blue-400 hover:text-blue-300 transition-opacity p-2 -mr-2"
                     >
                         <FaExternalLinkAlt size={12} />
                     </a>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </div>
         </div>
-      )}
+        )}
       </div>
     </div>
   );
