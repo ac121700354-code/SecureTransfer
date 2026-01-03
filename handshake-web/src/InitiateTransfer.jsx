@@ -464,7 +464,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
               {/* Fee Notice */}
               <div className="flex justify-end mt-1">
                  <span className="text-[10px] text-slate-500 flex items-center gap-1">
-                    <FaCoins size={10} /> {feeDisplay ? `Fee: ≈ ${feeDisplay}` : t.feeNotice}
+                    <FaCoins size={10} /> {feeDisplay ? `${t.feePrefix || "Fee: ≈"} ${feeDisplay}` : t.feeNotice}
                  </span>
               </div>
             </div>

@@ -95,6 +95,8 @@ export const translations = {
     cancelBtn: "Cancel Order",
     back: "Back",
     feeDescription: "Protocol fees: 90% Burned, 10% to DAO Treasury.",
+    feeNotice: "Protocol Fee: 0.1% (Max $1.0), deducted upon settlement.",
+    feePrefix: "Est. Fee: ≈",
     minAmountError: "Transfer amount below minimum limit ($1)",
     switchLang: "CN"
   },
@@ -194,6 +196,8 @@ export const translations = {
     cancelBtn: "取消订单",
     back: "返回",
     feeDescription: "协议费用：90% 回购销毁，10% 进入 DAO 金库。",
+    feeNotice: "手续费：0.1% (封顶 $1.0)，结算时扣除。",
+    feePrefix: "预估手续费：≈",
     minAmountError: "转账金额低于最小限额 ($1)",
     switchLang: "EN"
   }
