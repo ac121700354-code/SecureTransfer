@@ -259,7 +259,28 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
       const currentSigner = await signer.getAddress();
       console.log(`Action: ${method} by ${currentSigner}`);
 
-      const tx = await contract[method](id);
+      // FIX: OKX Wallet compatibility (Fee & Gas) for Confirm/Cancel actions
+      let overrides = {};
+      try {
+        const feeData = await provider.getFeeData();
+        if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
+           overrides.maxFeePerGas = feeData.maxFeePerGas;
+           overrides.maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+        } else if (feeData.gasPrice) {
+           overrides.gasPrice = feeData.gasPrice;
+        }
+      } catch (e) { console.warn("Fee fetch failed", e); }
+
+      try {
+        // Contract methods: confirm(bytes32), cancel(bytes32)
+        const estimatedGas = await contract[method].estimateGas(id, overrides);
+        overrides.gasLimit = (estimatedGas * 120n) / 100n;
+      } catch (e) {
+        console.warn("Gas estimate failed", e);
+        overrides.gasLimit = 300000n; // Safe default for confirm/cancel
+      }
+
+      const tx = await contract[method](id, overrides);
       await tx.wait(); 
 
       // 替换 alert 为 toast
