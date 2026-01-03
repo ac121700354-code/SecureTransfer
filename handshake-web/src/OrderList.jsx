@@ -51,28 +51,28 @@ const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensC
             ${isOut ? 'bg-indigo-500/10 text-indigo-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
             {isOut ? <FaSignOutAlt /> : <FaInbox />}
           </div>
-          <div className="flex-1 min-w-0">
-             <div className="flex items-center justify-between mb-1">
+          <div className="flex-1 min-w-0 flex items-center justify-between">
+             <div className="flex flex-col gap-0.5">
                 {/* Address */}
                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
                   <span className="font-mono text-slate-300 bg-slate-950/30 px-1.5 py-0.5 rounded border border-white/5 break-all select-all whitespace-nowrap tracking-tight">
                     {(isOut ? order.receiver : order.sender).slice(0, 6)}...{(isOut ? order.receiver : order.sender).slice(-4)}
                   </span>
                 </div>
-
-                {/* Amount + Token */}
-                <div className="flex items-center gap-2">
-                   <span className={`text-sm font-bold tracking-tight leading-none ${isOut ? 'text-rose-400' : 'text-emerald-400'}`} title={safeFormat(order.amount)}>
-                     {isOut ? "-" : "+"} {safeFormat(order.amount)}
-                   </span>
-                   <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                      {getTokenName(order.token)}
-                   </span>
+                {/* Time */}
+                <div className="text-[10px] text-slate-500 font-medium text-left ml-0.5">
+                   {formatDate(order.createdAt)}
                 </div>
              </div>
 
-             <div className="text-[10px] text-slate-500 font-medium text-left ml-0.5">
-               {formatDate(order.createdAt)}
+             {/* Amount + Token */}
+             <div className="flex items-center gap-2">
+                <span className={`text-sm font-bold tracking-tight leading-none ${isOut ? 'text-rose-400' : 'text-emerald-400'}`} title={safeFormat(order.amount)}>
+                  {isOut ? "-" : "+"} {safeFormat(order.amount)}
+                </span>
+                <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                   {getTokenName(order.token)}
+                </span>
              </div>
          </div>
        </div>
