@@ -4,8 +4,8 @@ import InitiateTransfer from './InitiateTransfer';
 import OrderList from './OrderList';
 import TransactionHistory from './components/TransactionHistory';
 import IntroSection from './components/IntroSection';
-import { FaWallet, FaShieldAlt, FaSignOutAlt, FaExchangeAlt, FaNetworkWired, FaEthereum, FaLayerGroup, FaChevronDown, FaSpinner, FaGlobe, FaBook, FaRegCopy } from 'react-icons/fa';
-import { SiBinance } from 'react-icons/si';
+import { FaWallet, FaShieldAlt, FaSignOutAlt, FaExchangeAlt, FaNetworkWired, FaEthereum, FaLayerGroup, FaChevronDown, FaSpinner, FaGlobe, FaBook, FaRegCopy, FaTwitter } from 'react-icons/fa';
+import { SiBinance, SiX } from 'react-icons/si';
 import WalletModal from './components/WalletModal';
 import { ToastProvider, useToast } from './components/Toast';
 import WhitepaperModal from './components/WhitepaperModal';
@@ -708,7 +708,12 @@ export default function App() {
           </main>
             
             <footer className="max-w-7xl mx-auto px-4 md:px-6 pb-8 text-center">
-              <p className="text-[10px] text-slate-600 mt-2">
+              <div className="flex justify-center items-center gap-4 mb-2">
+                <a href="#" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-white transition-colors">
+                  <SiX size={16} />
+                </a>
+              </div>
+              <p className="text-[10px] text-slate-600">
                 SecureTransfer Protocol © 2025
               </p>
             </footer>
