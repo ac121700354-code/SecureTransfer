@@ -185,13 +185,6 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
        setOutbox([]);
        setIsInitialLoading(true);
        fetchOrders().finally(() => setIsInitialLoading(false));
-
-       // Setup polling interval (30 seconds)
-       const intervalId = setInterval(() => {
-         fetchOrders(); // Silent update
-       }, 30000);
-
-       return () => clearInterval(intervalId);
     }
   }, [account, fetchOrders, contracts]); 
 

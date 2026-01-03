@@ -343,6 +343,17 @@ export default function App() {
   const [walletProvider, setWalletProvider] = useState(window.ethereum);
   const [isConnecting, setIsConnecting] = useState(false);
 
+  // Global Auto-Refresh Timer (60s)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Only refresh if user is connected
+      if (account) {
+        setRefreshTrigger(prev => (typeof prev === 'number' ? prev + 1 : 1));
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [account]);
+
   const handleConnect = useCallback(async (providerObj, walletName) => {
     localStorage.removeItem('isManualDisconnect');
     isManualDisconnect.current = false;
