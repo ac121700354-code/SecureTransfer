@@ -235,7 +235,7 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
   if (!account) return null;
 
   return (
-    <div className="bg-slate-800/30 rounded-2xl border border-white/5 p-6 mt-8 h-[600px] flex flex-col">
+    <div className="bg-slate-800/30 rounded-2xl border border-white/5 p-6 mt-8 min-h-[300px] flex flex-col">
       <div className="flex items-center justify-between mb-6 flex-shrink-0">
         <h3 className="text-xl font-bold text-white flex items-center gap-2">
           <FaHistory className="text-blue-400" />
