@@ -5,7 +5,7 @@ import OrderList from './OrderList';
 import TransactionHistory from './components/TransactionHistory';
 import IntroSection from './components/IntroSection';
 import { FaWallet, FaShieldAlt, FaSignOutAlt, FaExchangeAlt, FaNetworkWired, FaEthereum, FaLayerGroup, FaChevronDown, FaSpinner, FaGlobe, FaBook, FaRegCopy, FaTwitter } from 'react-icons/fa';
-import { SiBinance, SiX } from 'react-icons/si';
+import { SiBinance, SiX, SiGithub } from 'react-icons/si';
 import WalletModal from './components/WalletModal';
 import { ToastProvider, useToast } from './components/Toast';
 import WhitepaperModal from './components/WhitepaperModal';
@@ -711,6 +711,9 @@ export default function App() {
               <div className="flex justify-center items-center gap-4 mb-2">
                 <a href="https://x.com/fdlshit" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-white transition-colors">
                   <SiX size={16} />
+                </a>
+                <a href="https://github.com/ac121700354-code/SecureTransfer" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-white transition-colors">
+                  <SiGithub size={16} />
                 </a>
               </div>
               <p className="text-[10px] text-slate-600">
