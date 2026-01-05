@@ -50,7 +50,7 @@ const TokenBar = ({ label, percent, colorClass, width }) => (
 export const WhitepaperContentZh = () => (
   <div className="space-y-12 text-slate-300 font-sans">
     <div className="text-center border-b border-white/10 pb-10">
-      <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">链上安全转账协议白皮书</h1>
+      <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">Handshk 协议白皮书</h1>
       <p className="text-blue-400 font-medium text-lg tracking-wide opacity-90">安全 · 可信 · 可撤回</p>
       <p className="text-slate-500 text-sm mt-2">下一代去中心化非托管资产传输标准</p>
     </div>
@@ -58,7 +58,7 @@ export const WhitepaperContentZh = () => (
     <section>
       <SectionTitle number="01" title="摘要" />
       <div className="bg-slate-800/20 p-6 rounded-2xl border border-white/5 leading-relaxed text-justify">
-        链上安全转账协议（On-Chain Secure Transfer Protocol）是一项基于智能合约构建的非托管式区块链资产转账解决方案。本协议旨在解决区块链交易“不可逆、高风险”的核心痛点，为所有个人与企业用户提供一层额外的安全交易保障。我们不托管用户资金，而是通过代码逻辑实现了“双向确认”机制，彻底消除转账焦虑。
+        Handshk 协议（Handshk Protocol）是一项基于智能合约构建的非托管式区块链资产转账解决方案。本协议旨在解决区块链交易“不可逆、高风险”的核心痛点，为所有个人与企业用户提供一层额外的安全交易保障。我们不托管用户资金，而是通过代码逻辑实现了“双向确认”机制，彻底消除转账焦虑。
       </div>
     </section>
 
@@ -134,7 +134,7 @@ export const WhitepaperContentZh = () => (
           <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
           <div className="text-4xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">90%</div>
           <div className="text-xs text-emerald-400 uppercase tracking-widest font-bold mb-2">回购销毁</div>
-          <p className="text-xs text-slate-400 leading-relaxed">大部分协议收入用于在二级市场回购 STP 并销毁，实现持续通缩，提升代币价值。</p>
+          <p className="text-xs text-slate-400 leading-relaxed">大部分协议收入用于在二级市场回购 HSK 并销毁，实现持续通缩，提升代币价值。</p>
         </div>
 
         {/* 10% DAO */}
@@ -148,7 +148,7 @@ export const WhitepaperContentZh = () => (
 
       <div className="bg-slate-900/50 rounded-2xl p-6 border border-white/5">
         <div className="flex justify-between items-end mb-6">
-            <h4 className="font-bold text-white">代币分配 (STP)</h4>
+            <h4 className="font-bold text-white">代币分配 (HSK)</h4>
             <span className="text-xs text-slate-500 font-mono">代币总量：100,000,000 (1亿)</span>
         </div>
         <div className="space-y-5">
@@ -182,7 +182,7 @@ export const WhitepaperContentZh = () => (
       <div className="relative ml-3 pl-8 py-2 space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-gradient-to-b before:from-blue-500 before:via-slate-700 before:to-slate-800">
         {[
             { time: "Q1 2026", title: "起步", desc: "发布白皮书，上线测试网，启动社区空投活动。", active: true },
-            { time: "Q2 2026", title: "主网", desc: "主网上线（支持ETH, BNB），STP开启交易。", active: false },
+            { time: "Q2 2026", title: "主网", desc: "主网上线（支持ETH, BNB），HSK开启交易。", active: false },
             { time: "Q3 2026", title: "生态", desc: "推出多签安全账户功能，发布移动端App。", active: false },
             { time: "Q4 2026", title: "治理", desc: "启动DAO治理，通过社区投票调整协议参数。", active: false }
         ].map((item, i) => (
@@ -203,7 +203,7 @@ export const WhitepaperContentZh = () => (
 export const WhitepaperContentEn = () => (
   <div className="space-y-12 text-slate-300 font-sans">
     <div className="text-center border-b border-white/10 pb-10">
-      <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">Secure Transfer Protocol Whitepaper</h1>
+      <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">Handshk Protocol Whitepaper</h1>
       <p className="text-blue-400 font-medium text-lg tracking-wide opacity-90">Secure · Trusted · Reversible</p>
       <p className="text-slate-500 text-sm mt-2">Next-Generation Decentralized Non-Custodial Transfer Standard</p>
     </div>
@@ -211,7 +211,7 @@ export const WhitepaperContentEn = () => (
     <section>
       <SectionTitle number="01" title="Abstract" />
       <div className="bg-slate-800/20 p-6 rounded-2xl border border-white/5 leading-relaxed text-justify">
-        The On-Chain Escrow Transfer Protocol is a non-custodial blockchain asset transfer solution built on smart contracts. This protocol aims to solve the core pain point of blockchain transactions being "irreversible and high-risk," providing an extra layer of security for all individual and enterprise users. We do not take custody of user funds; instead, we implement "two-way confirmation" mechanisms through code logic, completely eliminating transfer anxiety.
+        Handshk Protocol is a non-custodial blockchain asset transfer solution built on smart contracts. This protocol aims to solve the core pain point of blockchain transactions being "irreversible and high-risk," providing an extra layer of security for all individual and enterprise users. We do not take custody of user funds; instead, we implement "two-way confirmation" mechanisms through code logic, completely eliminating transfer anxiety.
       </div>
     </section>
 
@@ -287,7 +287,7 @@ export const WhitepaperContentEn = () => (
           <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
           <div className="text-4xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">90%</div>
           <div className="text-xs text-emerald-400 uppercase tracking-widest font-bold mb-2">Buyback & Burn</div>
-          <p className="text-xs text-slate-400 leading-relaxed">The majority of protocol revenue is used to buy back STP tokens from the secondary market and burn them, achieving continuous deflation.</p>
+          <p className="text-xs text-slate-400 leading-relaxed">The majority of protocol revenue is used to buy back HSK tokens from the secondary market and burn them, achieving continuous deflation.</p>
         </div>
 
         {/* 10% DAO */}
@@ -301,7 +301,7 @@ export const WhitepaperContentEn = () => (
 
       <div className="bg-slate-900/50 rounded-2xl p-6 border border-white/5">
         <div className="flex justify-between items-end mb-6">
-            <h4 className="font-bold text-white">Token Distribution (STP)</h4>
+            <h4 className="font-bold text-white">Token Distribution (HSK)</h4>
             <span className="text-xs text-slate-500 font-mono">Total Supply: 100,000,000</span>
         </div>
         <div className="space-y-5">

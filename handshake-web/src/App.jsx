@@ -718,7 +718,7 @@ export default function App() {
                 </a>
               </div>
               <p className="text-[10px] text-slate-600">
-                SecureTransfer Protocol © 2025
+                Handshk Protocol © 2025
               </p>
             </footer>
 

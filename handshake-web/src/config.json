@@ -11,8 +11,8 @@
         "address": "0x0000000000000000000000000000000000000000"
       },
       {
-        "symbol": "STP",
-        "name": "SecureTransfer Token",
+        "symbol": "HSK",
+        "name": "Handshk Token",
         "logo": "./tokens/bfr-logo.svg?v=12",
         "address": "0x1e540D666acdEda1c3Ca3f98675A34f3F9756aA8"
       },
@@ -2329,8 +2329,8 @@
         "address": "0x0000000000000000000000000000000000000000"
       },
       {
-        "symbol": "STP",
-        "name": "SecureTransfer Token",
+        "symbol": "HSK",
+        "name": "Handshk Token",
         "logo": "./tokens/bfr-logo.svg?v=12",
         "address": "0xbcAed2621b68605cD3c8Ac0aF133931804a63220"
       },
