@@ -4,7 +4,7 @@ require("dotenv").config();
 
 // Configuration
 const PRIVATE_KEY = process.env.PRIVATE_KEY; 
-const RPC_URL = process.env.RPC_URL || "https://data-seed-prebsc-1-s1.binance.org:8545";
+const RPC_URL = process.env.RPC_URL || "https://bsc-testnet.publicnode.com";
 
 async function main() {
     console.log("Starting Mock STP Price Setup...");

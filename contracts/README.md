@@ -15,7 +15,7 @@
 
 ## BSC 部署
 - 主网 RPC：`https://bsc-dataseed.binance.org`
-- 测试网 RPC：`https://data-seed-prebsc-1-s1.binance.org:8545`
+- 测试网 RPC：`https://bsc-testnet.publicnode.com`
 - 通过 Remix 连接钱包（MetaMask），切换到对应网络
 - 部署顺序建议：
   1. 部署 `BufferToken`（代币）

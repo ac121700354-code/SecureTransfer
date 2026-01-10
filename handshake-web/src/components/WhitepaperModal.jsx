@@ -1,6 +1,6 @@
 import React from 'react';
 import { FaTimes, FaFileAlt } from 'react-icons/fa';
-import { useLanguage } from '../App';
+import { useLanguage } from '../contexts/LanguageContext';
 import { WhitepaperContentZh, WhitepaperContentEn } from './WhitepaperContent';
 
 export default function WhitepaperModal({ isOpen, onClose }) {
@@ -22,9 +22,8 @@ export default function WhitepaperModal({ isOpen, onClose }) {
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">
-                {lang === 'zh' ? '白皮书' : 'Whitepaper'}
+                Handshk Protocol
               </h2>
-              <p className="text-xs text-slate-400">SecureTransfer Protocol</p>
             </div>
           </div>
           <button 
@@ -40,7 +39,7 @@ export default function WhitepaperModal({ isOpen, onClose }) {
           {lang === 'zh' ? <WhitepaperContentZh /> : <WhitepaperContentEn />}
           
           <div className="text-center pt-8 mt-8 border-t border-white/5 text-slate-500 text-sm">
-            &copy; 2025 SecureTransfer Protocol. All Rights Reserved.
+            &copy; 2025 Handshk Protocol. All Rights Reserved.
           </div>
         </div>
       </div>

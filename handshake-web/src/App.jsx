@@ -1,22 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
 import { ethers } from 'ethers';
 import InitiateTransfer from './InitiateTransfer';
+import ActivityRewards from './components/ActivityRewards';
 import OrderList from './OrderList';
 import TransactionHistory from './components/TransactionHistory';
 import IntroSection from './components/IntroSection';
-import { FaWallet, FaShieldAlt, FaSignOutAlt, FaExchangeAlt, FaNetworkWired, FaEthereum, FaLayerGroup, FaChevronDown, FaSpinner, FaGlobe, FaBook, FaRegCopy, FaTwitter } from 'react-icons/fa';
+import { FaWallet, FaShieldAlt, FaSignOutAlt, FaExchangeAlt, FaNetworkWired, FaEthereum, FaLayerGroup, FaChevronDown, FaSpinner, FaGlobe, FaBook, FaRegCopy, FaTwitter, FaTelegram } from 'react-icons/fa';
 import { SiBinance, SiX, SiGithub } from 'react-icons/si';
 import WalletModal from './components/WalletModal';
 import { ToastProvider, useToast } from './components/Toast';
 import WhitepaperModal from './components/WhitepaperModal';
 import config from './config.json';
-import { translations } from './translations';
+import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { WALLETS } from './config/wallets';
-
-// --- Language Context ---
-export const LanguageContext = createContext();
-
-export const useLanguage = () => useContext(LanguageContext);
 
 // --- Language Switcher Component ---
 const LanguageSwitcher = () => {
@@ -301,25 +297,10 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-export default function App() {
+function AppContent() {
+  const { t } = useLanguage();
   const [account, setAccount] = useState("");
   const isManualDisconnect = useRef(false);
-  
-  // Initialize language from localStorage or default to 'en'
-  const [lang, setLang] = useState(() => {
-      return localStorage.getItem('appLanguage') || 'en';
-  });
-  
-  // Persist language change to localStorage
-  useEffect(() => {
-      localStorage.setItem('appLanguage', lang);
-  }, [lang]);
-
-  const t = translations[lang];
-
-  const toggleLang = () => {
-    setLang(prev => prev === 'en' ? 'zh' : 'en');
-  };
   
   // --- Global Network State ---
   const getSavedChainId = () => {
@@ -589,152 +570,167 @@ export default function App() {
   };
 
   return (
-    <LanguageContext.Provider value={{ lang, t, setLang }}>
-      <ToastProvider>
-        <ErrorBoundary>
-          <div className="min-h-screen bg-[#0f172a] text-slate-300 font-sans selection:bg-blue-500/30">
-            {/* ... (导航栏保持不变) ... */}
-            <nav className="sticky top-0 z-50 backdrop-blur-xl bg-[#0f172a]/80 border-b border-white/5">
-              <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center h-auto md:h-20 px-6 py-4 md:py-0 gap-4 md:gap-0">
-                <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
-                  <div className="flex items-center gap-4">
-                     <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 overflow-hidden">
-                       <img src="./tokens/bfr-logo.svg?v=12" alt="Logo" className="w-full h-full object-cover" />
-                     </div>
-                     <div>
-                       <h1 className="text-xl font-bold text-white tracking-tight">{t.appTitle}</h1>
-                       <button 
-                         onClick={() => setIsWhitepaperOpen(true)}
-                         className="group flex items-center gap-1.5 text-[10px] text-slate-400 font-medium tracking-wide uppercase hover:text-blue-400 transition-colors py-0.5 text-left"
-                         title={t.whitepaper}
-                       >
-                         <span className="border-b border-slate-700 group-hover:border-blue-400/50 transition-colors pb-px">{t.appSubtitle}</span>
-                       </button>
-                     </div>
-                  </div>
-                  {/* 移动端连接按钮放右上角？或者保持原样在下方 */}
+    <ToastProvider>
+      <ErrorBoundary>
+        <div className="min-h-screen bg-[#0f172a] text-slate-300 font-sans selection:bg-blue-500/30">
+          <nav className="sticky top-0 z-50 backdrop-blur-xl bg-[#0f172a]/80 border-b border-white/5">
+            <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center h-auto md:h-20 px-6 py-4 md:py-0 gap-4 md:gap-0">
+              <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 overflow-hidden">
+                      <img src="/tokens/bfr-logo.svg?v=12" alt="Logo" className="w-full h-full object-cover" />
+                    </div>
+                    <div>
+                      <h1 className="text-xl font-bold text-white tracking-tight">{t.appTitle}</h1>
+                      <button 
+                        onClick={() => setIsWhitepaperOpen(true)}
+                        className="group flex items-center gap-1.5 text-[10px] text-slate-400 font-medium tracking-wide uppercase hover:text-blue-400 transition-colors py-0.5 text-left"
+                        title={t.whitepaper}
+                      >
+                        <span className="border-b border-slate-700 group-hover:border-blue-400/50 transition-colors pb-px">{t.appSubtitle}</span>
+                      </button>
+                    </div>
                 </div>
+              </div>
 
-       <div className="flex items-center gap-3 w-full md:w-auto justify-center md:justify-end">
-                  <LanguageSwitcher />
+      <div className="flex items-center gap-3 w-full md:w-auto justify-center md:justify-end">
+                <LanguageSwitcher />
 
-                  <NetworkSwitcher 
-                    provider={walletProvider} 
-                    currentChainId={chainId} 
-                    onNetworkChange={handleNetworkChange}
+                <NetworkSwitcher 
+                  provider={walletProvider} 
+                  currentChainId={chainId} 
+                  onNetworkChange={handleNetworkChange}
+                />
+                {isInitializing ? (
+                  <div className="h-10 w-32 bg-slate-800/50 rounded-full animate-pulse border border-white/5"></div>
+                ) : (
+                  <ConnectButton 
+                    account={account} 
+                    onOpenModal={() => setIsWalletModalOpen(true)} 
+                    handleDisconnect={handleDisconnect}
+                    isConnecting={isConnecting}
                   />
-                  {isInitializing ? (
-                    <div className="h-10 w-32 bg-slate-800/50 rounded-full animate-pulse border border-white/5"></div>
-                  ) : (
-                    <ConnectButton 
-                      account={account} 
-                      onOpenModal={() => setIsWalletModalOpen(true)} 
-                      handleDisconnect={handleDisconnect}
-                      isConnecting={isConnecting}
-                    />
-                  )}
-                  {/* 
-                    Move WalletModal outside of this flex container or at the end of the return statement
-                    to ensure it's not nested inside the navigation header's layout flow, 
-                    although fixed positioning usually handles this, it's cleaner.
-                    
-                    Actually, looking at the code, it is rendered twice!
-                    Once inside the nav (line 382) and once at the end of the file (line 451).
-                    This causes the double modal issue.
-                  */}
-                </div>
+                )}
               </div>
-            </nav>
+            </div>
+          </nav>
 
-            <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8">
-              <IntroSection />
-              
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-                <div className="lg:col-span-4 space-y-8">
-                  <div className="sticky top-28">
-                     <ErrorBoundary>
-                        <InitiateTransfer 
-                          account={account} 
-                          provider={walletProvider}
-                          onTransactionSuccess={onTransactionSuccess} 
-                          refreshBalanceTrigger={refreshTrigger}
-                          activeCount={activeCount}
-                          chainId={chainId}
-                          activeConfig={activeConfig}
-                        />
-                     </ErrorBoundary>
-                </div>
-              </div>
+          <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8">
+            <IntroSection />
 
-                <div className="lg:col-span-8">
-                  {account ? (
+            {account && (
+                <div className="mb-6">
                     <ErrorBoundary>
-                      <OrderList 
-                          key={account} 
-                          account={account} 
-                          provider={walletProvider}
-                          refreshTrigger={refreshTrigger} 
-                          onActionSuccess={() => setRefreshTrigger(prev => (typeof prev === 'number' ? prev + 1 : 1))}
-                          onStatsUpdate={setActiveCount}
-                          activeConfig={activeConfig}
-                          chainId={chainId}
+                        <ActivityRewards 
+                            account={account} 
+                            provider={walletProvider}
+                            chainId={chainId}
+                            activeConfig={activeConfig}
+                            onRewardClaimed={() => setRefreshTrigger(prev => (typeof prev === 'number' ? prev + 1 : 1))}
+                        />
+                    </ErrorBoundary>
+                </div>
+            )}
+            
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+              <div className="lg:col-span-4 space-y-8">
+                <div className="sticky top-28">
+                    <ErrorBoundary>
+                      <InitiateTransfer 
+                        account={account} 
+                        provider={walletProvider} 
+                        onTransactionSuccess={onTransactionSuccess} 
+                        refreshBalanceTrigger={refreshTrigger}
+                        activeCount={activeCount}
+                        chainId={chainId}
+                        activeConfig={activeConfig}
                       />
                     </ErrorBoundary>
-                  ) : (
-                    <div className="min-h-[700px] h-full flex flex-col items-center justify-center bg-slate-800/30 rounded-[2rem] border border-dashed border-slate-700/50">
-                      <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                        <FaWallet className="text-3xl text-slate-600" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-slate-300 mb-2">{t.pleaseConnectWallet}</h3>
-                      <p className="text-slate-500 text-sm max-w-xs text-center">{t.connectToView}</p>
-                    </div>
-                  )}
-                </div>
-              
-              {account && (
-                <div className="lg:col-span-12">
-                   <ErrorBoundary>
-                      <TransactionHistory 
-                          account={account} 
-                          provider={walletProvider}
-                          chainId={chainId}
-                          activeConfig={activeConfig}
-                          refreshTrigger={refreshTrigger}
-                      />
-                   </ErrorBoundary>
-                </div>
-              )}
-            </div>
-          </main>
-            
-            <footer className="max-w-7xl mx-auto px-4 md:px-6 pb-8 text-center">
-              <div className="flex justify-center items-center gap-4 mb-2">
-                <a href="https://x.com/fdlshit" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-white transition-colors">
-                  <SiX size={16} />
-                </a>
-
-                <a href="https://github.com/ac121700354-code/SecureTransfer" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-white transition-colors">
-                  <SiGithub size={16} />
-                </a>
               </div>
-              <p className="text-[10px] text-slate-600">
-                Handshk Protocol © 2025
-              </p>
-            </footer>
+            </div>
 
-            <WalletModal 
-              isOpen={isWalletModalOpen} 
-              onClose={() => setIsWalletModalOpen(false)} 
-              onConnect={handleConnect}
-            />
+              <div className="lg:col-span-8">
+                {account ? (
+                  <ErrorBoundary>
+                    <OrderList 
+                        key={account} 
+                        account={account} 
+                        provider={walletProvider}
+                        refreshTrigger={refreshTrigger} 
+                        onActionSuccess={() => setRefreshTrigger(prev => (typeof prev === 'number' ? prev + 1 : 1))}
+                        onStatsUpdate={setActiveCount}
+                        activeConfig={activeConfig}
+                        chainId={chainId}
+                    />
+                  </ErrorBoundary>
+                ) : (
+                  <div className="min-h-[700px] h-full flex flex-col items-center justify-center bg-slate-800/30 rounded-[2rem] border border-dashed border-slate-700/50">
+                    <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                      <FaWallet className="text-3xl text-slate-600" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-300 mb-2">{t.pleaseConnectWallet}</h3>
+                    <p className="text-slate-500 text-sm max-w-xs text-center">{t.connectToView}</p>
+                  </div>
+                )}
+              </div>
             
-            <WhitepaperModal 
-              isOpen={isWhitepaperOpen} 
-              onClose={() => setIsWhitepaperOpen(false)} 
-            />
+            {/* 
+            {account && (
+              <div className="lg:col-span-12">
+                  <ErrorBoundary>
+                    <TransactionHistory 
+                        account={account} 
+                        provider={walletProvider}
+                        chainId={chainId}
+                        activeConfig={activeConfig}
+                        refreshTrigger={refreshTrigger}
+                    />
+                  </ErrorBoundary>
+              </div>
+            )}
+            */}
           </div>
-        </ErrorBoundary>
-      </ToastProvider>
-    </LanguageContext.Provider>
+        </main>
+          
+          <footer className="max-w-7xl mx-auto px-4 md:px-6 pb-8 text-center">
+            <div className="flex justify-center items-center gap-4 mb-2">
+              <a href="https://x.com/fdlshit" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-white transition-colors">
+                <SiX size={16} />
+              </a>
+
+              <a href="https://t.me/+y7_XQC7wwTI0Mjc1" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-white transition-colors">
+                <FaTelegram size={16} />
+              </a>
+
+              <a href="https://github.com/ac121700354-code/SecureTransfer" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-white transition-colors">
+                <SiGithub size={16} />
+              </a>
+            </div>
+            <p className="text-[10px] text-slate-600">
+              Handshk Protocol © 2025
+            </p>
+          </footer>
+
+          <WalletModal 
+            isOpen={isWalletModalOpen} 
+            onClose={() => setIsWalletModalOpen(false)} 
+            onConnect={handleConnect}
+          />
+          
+          <WhitepaperModal 
+            isOpen={isWhitepaperOpen} 
+            onClose={() => setIsWhitepaperOpen(false)} 
+          />
+        </div>
+      </ErrorBoundary>
+    </ToastProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
   );
 }

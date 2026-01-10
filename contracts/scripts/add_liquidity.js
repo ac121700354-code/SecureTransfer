@@ -4,7 +4,7 @@ require("dotenv").config();
 
 // Configuration
 const PRIVATE_KEY = process.env.PRIVATE_KEY; 
-const RPC_URL = process.env.RPC_URL || "https://data-seed-prebsc-1-s1.binance.org:8545";
+const RPC_URL = process.env.RPC_URL || "https://bsc-testnet.publicnode.com";
 
 // PancakeSwap V2 Router Address on BSC Testnet
 const ROUTER_ADDRESS = "0xD99D1c33F9fC3444f8101754aBC46c52416550D1";

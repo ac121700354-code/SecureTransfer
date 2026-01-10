@@ -17,7 +17,7 @@ module.exports = {
     hardhat: {
     },
     bnb_testnet: {
-      url: "https://data-seed-prebsc-1-s1.binance.org:8545",
+      url: "https://bsc-testnet.publicnode.com",
       chainId: 97,
       gasPrice: 5000000000, // Lower to 5 Gwei to save gas
       accounts: (process.env.PRIVATE_KEY && process.env.PRIVATE_KEY.length >= 64) ? [process.env.PRIVATE_KEY] : [],

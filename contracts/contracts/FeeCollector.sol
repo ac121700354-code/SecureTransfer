@@ -59,6 +59,9 @@ contract FeeCollector is Ownable, ReentrancyGuard {
     // 触发回购的最小美元价值 ($10,000)
     uint256 public buybackThresholdUsd = 10_000 * 1e18; 
     
+    // 回购功能开关
+    bool public buybackEnabled = false;
+
     // 代币 -> 预言机 映射
     mapping(address => address) public priceFeeds;
 
@@ -67,6 +70,7 @@ contract FeeCollector is Ownable, ReentrancyGuard {
     event Burned(uint256 amount);
     event DaoFunded(uint256 amount);
     event ThresholdUpdated(uint256 newThreshold);
+    event BuybackEnabledUpdated(bool enabled);
     event DaoTreasuryUpdated(address newTreasury);
 
     constructor(address _bufferToken, address _uniRouter, address _weth, address _daoTreasury) Ownable(msg.sender) {
@@ -97,6 +101,11 @@ contract FeeCollector is Ownable, ReentrancyGuard {
     function setBuybackThreshold(uint256 _newThreshold) external onlyOwner {
         buybackThresholdUsd = _newThreshold;
         emit ThresholdUpdated(_newThreshold);
+    }
+
+    function setBuybackEnabled(bool _enabled) external onlyOwner {
+        buybackEnabled = _enabled;
+        emit BuybackEnabledUpdated(_enabled);
     }
 
     // --- 核心逻辑 ---
@@ -138,6 +147,7 @@ contract FeeCollector is Ownable, ReentrancyGuard {
         uint256[] calldata minBfrOuts,
         bool includeNative
     ) external nonReentrant {
+        require(buybackEnabled, "Buyback disabled");
         require(tokens.length == minBfrOuts.length, "Arrays length mismatch");
 
         // 1. 验证总价值门槛

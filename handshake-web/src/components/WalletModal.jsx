@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { FaTimes, FaChevronRight } from 'react-icons/fa';
-import { useLanguage } from '../App';
+import { useLanguage } from '../contexts/LanguageContext';
 import { WALLETS } from '../config/wallets';
 
 // Hook to discover EIP-6963 providers

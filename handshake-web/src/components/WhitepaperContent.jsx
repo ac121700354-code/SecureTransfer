@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 import { FaLock, FaCheckCircle, FaExchangeAlt, FaShieldAlt, FaCode, FaBell, FaChartPie, FaGlobe, FaMobileAlt, FaVoteYea } from 'react-icons/fa';
 
 const SectionTitle = ({ number, title }) => (
@@ -52,7 +53,7 @@ export const WhitepaperContentZh = () => (
     <div className="text-center border-b border-white/10 pb-10">
       <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">Handshk 协议白皮书</h1>
       <p className="text-blue-400 font-medium text-lg tracking-wide opacity-90">安全 · 可信 · 可撤回</p>
-      <p className="text-slate-500 text-sm mt-2">下一代去中心化非托管资产传输标准</p>
+      <p className="text-slate-500 text-sm mt-2">下一代去中心化转账标准</p>
     </div>
 
     <section>
@@ -64,7 +65,7 @@ export const WhitepaperContentZh = () => (
 
     <section>
       <SectionTitle number="02" title="问题陈述" />
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="flex flex-col gap-6">
         <div>
           <h4 className="font-bold text-white mb-3 flex items-center gap-2">
              <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
@@ -75,9 +76,9 @@ export const WhitepaperContentZh = () => (
           </p>
         </div>
         <div className="bg-slate-800/40 p-5 rounded-xl border-l-2 border-rose-500/50">
-          <h4 className="font-bold text-slate-200 mb-2 text-sm">现有方案局限性</h4>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            传统的担保交易（Escrow）往往依赖中心化服务商（如交易所），不仅成本高昂，且存在“黑箱”风险（资金可能被冻结或挪用）。我们需要一种完全去中心化的、透明的链上安全机制。
+          <h4 className="font-bold text-white mb-2 text-sm">现有方案局限性</h4>
+          <p className="text-sm text-slate-400 leading-relaxed">
+            现有的解决方案，如地址校验码（Checksum）和域名服务（ENS），仅解决了“输错”的问题，但无法解决“转错”（即转向一个有效但非预期的地址）的根本矛盾。市场亟需一种能够在保留区块链去中心化精髓的同时，引入人性化安全保障的新型转账范式。
           </p>
         </div>
       </div>
@@ -123,10 +124,26 @@ export const WhitepaperContentZh = () => (
     </section>
 
     <section>
-      <SectionTitle number="04" title="经济模型" />
+      <SectionTitle number="04" title="应用场景" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {[
+            { title: "大额 OTC 交易", desc: "陌生人之间的点对点大额交易，无需信任第三方担保。" },
+            { title: "企业薪资发放", desc: "防止财务发错地址，提供二次确认机会。" },
+            { title: "防误操作保护", desc: "为日常转账多加一层“撤回”保险，安心无忧。" }
+        ].map((item, i) => (
+            <div key={i} className="bg-slate-800/30 p-5 rounded-xl border border-white/5 hover:bg-slate-800/60 hover:border-blue-500/20 transition-all cursor-default">
+                <h4 className="font-bold text-slate-200 mb-1">{item.title}</h4>
+                <p className="text-sm text-slate-500">{item.desc}</p>
+            </div>
+        ))}
+      </div>
+    </section>
+
+    <section>
+      <SectionTitle number="05" title="经济模型" />
       
       <h4 className="font-bold text-white mt-4 mb-2">4.1 协议服务费</h4>
-      <p className="mb-4">协议将对每笔成功完成的安全转账收取微量服务费（如 0.1% 或固定金额），用于：</p>
+      <p className="mb-4">协议将对每笔成功完成的安全转账收取微量服务费：0.1%（最低 $0.01 封顶 $1.0），结算时扣除，用于：</p>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 max-w-3xl mx-auto">
         {/* 90% Burn */}
@@ -141,8 +158,8 @@ export const WhitepaperContentZh = () => (
         <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-white/5 text-center relative overflow-hidden group shadow-xl shadow-blue-500/5 hover:border-blue-500/20 transition-all">
           <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
           <div className="text-4xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">10%</div>
-          <div className="text-xs text-blue-400 uppercase tracking-widest font-bold mb-2">DAO 财库</div>
-          <p className="text-xs text-slate-400 leading-relaxed">进入 DAO 财库钱包，用于支持社区治理提案、长期生态激励及项目可持续发展。</p>
+          <div className="text-xs text-blue-400 uppercase tracking-widest font-bold mb-2">生态建设</div>
+          <p className="text-xs text-slate-400 leading-relaxed">用于支持社区治理提案、长期生态激励及项目可持续发展。</p>
         </div>
       </div>
 
@@ -153,27 +170,10 @@ export const WhitepaperContentZh = () => (
         </div>
         <div className="space-y-5">
             <TokenBar label="社区空投与激励" percent="45%" width="45%" colorClass="bg-gradient-to-r from-blue-600 to-blue-400" />
-            <TokenBar label="生态基金" percent="20%" width="20%" colorClass="bg-gradient-to-r from-purple-600 to-purple-400" />
+            <TokenBar label="生态与DAO国库" percent="30%" width="30%" colorClass="bg-gradient-to-r from-purple-600 to-purple-400" />
             <TokenBar label="核心团队 (锁仓)" percent="15%" width="15%" colorClass="bg-gradient-to-r from-emerald-600 to-emerald-400" />
             <TokenBar label="投资机构 (锁仓)" percent="10%" width="10%" colorClass="bg-gradient-to-r from-amber-600 to-amber-400" />
-            <TokenBar label="DAO 国库" percent="10%" width="10%" colorClass="bg-gradient-to-r from-slate-600 to-slate-400" />
         </div>
-      </div>
-    </section>
-
-    <section>
-      <SectionTitle number="05" title="应用场景" />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-            { title: "大额 OTC 交易", desc: "陌生人之间的点对点大额交易，无需信任第三方担保。" },
-            { title: "企业薪资发放", desc: "防止财务发错地址，提供二次确认机会。" },
-            { title: "防误操作保护", desc: "为日常转账多加一层“撤回”保险，安心无忧。" }
-        ].map((item, i) => (
-            <div key={i} className="bg-slate-800/30 p-5 rounded-xl border border-white/5 hover:bg-slate-800/60 hover:border-blue-500/20 transition-all cursor-default">
-                <h4 className="font-bold text-slate-200 mb-1">{item.title}</h4>
-                <p className="text-sm text-slate-500">{item.desc}</p>
-            </div>
-        ))}
       </div>
     </section>
 
@@ -217,7 +217,7 @@ export const WhitepaperContentEn = () => (
 
     <section>
       <SectionTitle number="02" title="Problem Statement" />
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="flex flex-col gap-6">
         <div>
           <h4 className="font-bold text-white mb-3 flex items-center gap-2">
              <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
@@ -276,10 +276,26 @@ export const WhitepaperContentEn = () => (
     </section>
 
     <section>
-      <SectionTitle number="04" title="Tokenomics" />
+      <SectionTitle number="04" title="Use Cases" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {[
+            { title: "Large OTC Trades", desc: "P2P large transfers between strangers without trusted third parties." },
+            { title: "Payroll", desc: "Prevent sending salaries to wrong addresses with a second confirmation." },
+            { title: "Anti-Error Protection", desc: "An extra 'Undo' layer for daily transfers." }
+        ].map((item, i) => (
+            <div key={i} className="bg-slate-800/30 p-5 rounded-xl border border-white/5 hover:bg-slate-800/60 hover:border-blue-500/20 transition-all cursor-default">
+                <h4 className="font-bold text-slate-200 mb-1">{item.title}</h4>
+                <p className="text-sm text-slate-500">{item.desc}</p>
+            </div>
+        ))}
+      </div>
+    </section>
+
+    <section>
+      <SectionTitle number="05" title="Tokenomics" />
       
       <h4 className="font-bold text-white mt-4 mb-2">4.1 Protocol Fees</h4>
-      <p className="mb-4">The protocol charges a small fee (e.g. 0.1%) on every successful secured transfer, which is used for:</p>
+      <p className="mb-4">The protocol charges a small fee on every successful secured transfer: 0.1% (Min $0.01, Max $1.0), deducted at settlement, used for:</p>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 max-w-3xl mx-auto">
         {/* 90% Burn */}
@@ -306,27 +322,10 @@ export const WhitepaperContentEn = () => (
         </div>
         <div className="space-y-5">
             <TokenBar label="Community & Airdrop" percent="45%" width="45%" colorClass="bg-gradient-to-r from-blue-600 to-blue-400" />
-            <TokenBar label="Ecosystem Fund" percent="20%" width="20%" colorClass="bg-gradient-to-r from-purple-600 to-purple-400" />
+            <TokenBar label="Ecosystem & Treasury" percent="30%" width="30%" colorClass="bg-gradient-to-r from-purple-600 to-purple-400" />
             <TokenBar label="Team (Locked)" percent="15%" width="15%" colorClass="bg-gradient-to-r from-emerald-600 to-emerald-400" />
             <TokenBar label="Investors (Locked)" percent="10%" width="10%" colorClass="bg-gradient-to-r from-amber-600 to-amber-400" />
-            <TokenBar label="DAO Treasury" percent="10%" width="10%" colorClass="bg-gradient-to-r from-slate-600 to-slate-400" />
         </div>
-      </div>
-    </section>
-
-    <section>
-      <SectionTitle number="05" title="Use Cases" />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-            { title: "Large OTC Trades", desc: "P2P large transfers between strangers without trusted third parties." },
-            { title: "Payroll", desc: "Prevent sending salaries to wrong addresses with a second confirmation." },
-            { title: "Anti-Error Protection", desc: "An extra 'Undo' layer for daily transfers." }
-        ].map((item, i) => (
-            <div key={i} className="bg-slate-800/30 p-5 rounded-xl border border-white/5 hover:bg-slate-800/60 hover:border-blue-500/20 transition-all cursor-default">
-                <h4 className="font-bold text-slate-200 mb-1">{item.title}</h4>
-                <p className="text-sm text-slate-500">{item.desc}</p>
-            </div>
-        ))}
       </div>
     </section>
 

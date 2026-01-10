@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { FaInbox, FaSignOutAlt, FaSync, FaCheckCircle, FaTimesCircle, FaHourglassHalf } from 'react-icons/fa';
+import { FaInbox, FaSignOutAlt, FaSync, FaCheckCircle, FaTimesCircle, FaHourglassHalf, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import config from './config.json';
 import { useToast } from './components/Toast';
-import { useLanguage } from './App';
+import { useLanguage } from './contexts/LanguageContext';
+import ConfirmModal from './components/ConfirmModal';
 
 // Note: CONTRACT_ADDRESS is now dynamic, we get it inside the component.
 
@@ -41,8 +42,8 @@ const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensC
   };
 
   return (
-    <div className={`bg-slate-800/40 border p-3 rounded-xl mb-2 transition-all duration-300 group hover:bg-slate-800/60
-      ${isThisProcessing ? 'opacity-50 border-blue-500/50 scale-[0.98]' : 'border-white/5 hover:border-blue-500/20'}`}>
+    <div className={`p-3 rounded-xl mb-2 transition-all duration-300 group bg-white/5 border border-white/5
+      ${isThisProcessing ? 'opacity-50 scale-[0.98]' : 'hover:bg-white/10'}`}>
       
       {/* Header: Type, Address, Time */}
       <div className={`flex items-center w-full ${isOut ? 'mb-2' : ''}`}>
@@ -54,8 +55,8 @@ const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensC
           <div className="flex-1 min-w-0 flex items-center justify-between">
              <div className="flex flex-col gap-0.5">
                 {/* Address */}
-                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
-                  <span className="font-mono text-slate-300 bg-slate-950/30 px-1.5 py-0.5 rounded border border-white/5 break-all select-all whitespace-nowrap tracking-tight">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                  <span className="font-mono text-white tracking-wide">
                     {(isOut ? order.receiver : order.sender).slice(0, 6)}...{(isOut ? order.receiver : order.sender).slice(-4)}
                   </span>
                 </div>
@@ -79,7 +80,7 @@ const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensC
      </div>
 
       {/* Actions */}
-      {isOut && (
+      {isOut ? (
         <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
           <button 
             onClick={() => onAction(order.id, 'confirm')}
@@ -95,6 +96,10 @@ const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensC
           >
             {processingAction === 'cancel' ? <FaHourglassHalf className="animate-spin" /> : <FaTimesCircle />} {t.cancelOrder}
           </button>
+        </div>
+      ) : (
+        <div className="mt-2 pt-2 border-t border-white/5 text-[10px] text-amber-400/80 flex items-center justify-end gap-1.5 font-medium leading-tight">
+           {t.inboxTip}
         </div>
       )}
     </div>
@@ -113,6 +118,13 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
   const [outbox, setOutbox] = useState([]);
   const [isInitialLoading, setIsInitialLoading] = useState(false);
   const [processingState, setProcessingState] = useState(null);
+  
+  // Confirm Modal State
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    orderId: null,
+    method: null
+  });
 
   // --- 核心：安全的数据清洗逻辑 ---
   const fetchOrders = useCallback(async () => {
@@ -229,6 +241,22 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
   // --- 核心：安全的操作处理逻辑 ---
   const handleAction = async (id, method) => {
     if (processingState || !contracts) return; // 防止双重点击
+
+    // Add confirmation for 'confirm' (Release Funds) action
+    if (method === 'confirm') {
+      setConfirmModal({
+        isOpen: true,
+        orderId: id,
+        method: method
+      });
+      return;
+    }
+    
+    // For other actions (like cancel), proceed directly
+    executeAction(id, method);
+  };
+
+  const executeAction = async (id, method) => {
     setProcessingState({ id, action: method });
     
     try {
@@ -273,6 +301,11 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
   };
 
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const [inboxPage, setInboxPage] = useState(1);
+  const [outboxPage, setOutboxPage] = useState(1);
+  const inboxPageSize = 4;
+  const outboxPageSize = 4;
+  const pageSize = 4; // Fallback for safety if needed elsewhere
 
   const handleManualRefresh = async () => {
     if (isManualRefreshing || isInitialLoading) return;
@@ -284,8 +317,49 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
   const sortedInbox = [...inbox].sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
   const sortedOutbox = [...outbox].sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
 
+  const totalInboxPages = Math.ceil(sortedInbox.length / inboxPageSize) || 1;
+  const totalOutboxPages = Math.ceil(sortedOutbox.length / outboxPageSize) || 1;
+  
+  // Auto-adjust pages if items are removed and current page is empty
+  useEffect(() => {
+    if (inboxPage > totalInboxPages && totalInboxPages > 0) {
+        setInboxPage(totalInboxPages);
+    }
+  }, [totalInboxPages, inboxPage]);
+
+  useEffect(() => {
+    if (outboxPage > totalOutboxPages && totalOutboxPages > 0) {
+        setOutboxPage(totalOutboxPages);
+    }
+  }, [totalOutboxPages, outboxPage]);
+
+  const currentInbox = sortedInbox.slice((inboxPage - 1) * inboxPageSize, inboxPage * inboxPageSize);
+  const currentOutbox = sortedOutbox.slice((outboxPage - 1) * outboxPageSize, outboxPage * outboxPageSize);
+
+  const PaginationControls = ({ page, total, setPage }) => (
+    <div className="p-3 border-t border-white/5 flex justify-between items-center bg-slate-800/10 mt-auto">
+        <button 
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-400 hover:text-white transition-all"
+        >
+            <FaChevronLeft size={10} />
+        </button>
+        <span className="text-[10px] text-slate-500 font-mono">
+            {page} / {total}
+        </span>
+        <button 
+            onClick={() => setPage(p => Math.min(total, p + 1))}
+            disabled={page >= total}
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-400 hover:text-white transition-all"
+        >
+            <FaChevronRight size={10} />
+        </button>
+    </div>
+  );
+
   return (
-    <div className="bg-slate-900/20 rounded-[2.5rem] border border-white/5 overflow-hidden h-[700px] flex flex-col">
+    <div className="bg-slate-900/20 rounded-[2.5rem] border border-white/5 overflow-hidden flex flex-col h-[724px]">
       <div className="p-6 border-b border-white/5 flex justify-between items-center shrink-0 bg-slate-800/20">
         <h3 className="text-white font-bold text-lg flex items-center gap-2">
            <FaInbox className="text-blue-500" /> {t.history}
@@ -302,41 +376,12 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
 
       {/* List Content */}
       {isInitialLoading ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-slate-500 space-y-4">
+        <div className="flex-1 flex flex-col items-center justify-center text-slate-500 space-y-4 min-h-[400px]">
           <FaSync className="animate-spin text-2xl opacity-20" />
           <p className="text-xs font-medium animate-pulse">{t.processing}</p>
         </div>
       ) : (
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 min-h-0 divide-y md:divide-y-0 md:divide-x divide-white/5">
-          {/* Inbox Section */}
-          <div className="flex flex-col h-full min-h-0">
-            <div className="p-5 pb-3 shrink-0 bg-slate-800/10 backdrop-blur-sm sticky top-0 z-10 h-[52px] flex items-center">
-              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                {t.receiver} <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">{sortedInbox.length}</span>
-              </h4>
-            </div>
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 pt-0 flex flex-col">
-              {sortedInbox.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-slate-800 rounded-xl bg-slate-800/20">
-                  <p className="text-xs text-slate-600">{t.noActiveOrders}</p>
-                </div>
-              ) : (
-                sortedInbox.map(o => (
-                  <OrderCard 
-                    key={o.id} 
-                    order={o} 
-                    isOut={false} 
-                    onAction={handleAction}
-                    processingState={processingState}
-                    contracts={contracts}
-                    tokensConfig={activeConfig?.tokens}
-                  />
-                ))
-              )}
-            </div>
-          </div>
-
           {/* Outbox Section */}
           <div className="flex flex-col h-full min-h-0">
             <div className="p-5 pb-3 shrink-0 bg-slate-800/10 backdrop-blur-sm sticky top-0 z-10 h-[52px] flex items-center">
@@ -345,28 +390,86 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
                 {t.sender} <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">{sortedOutbox.length}</span>
               </h4>
             </div>
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 pt-0 flex flex-col">
+            <div className="p-5 pt-0 flex flex-col h-full overflow-hidden">
               {sortedOutbox.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-slate-800 rounded-xl bg-slate-800/20">
+                <div className="flex-1 flex flex-col items-center justify-center">
                   <p className="text-xs text-slate-600">{t.noActiveOrders}</p>
                 </div>
               ) : (
-                sortedOutbox.map(o => (
-                  <OrderCard 
-                    key={o.id} 
-                    order={o} 
-                    isOut={true} 
-                    onAction={handleAction}
-                    processingState={processingState}
-                    contracts={contracts}
-                    tokensConfig={activeConfig?.tokens}
-                  />
-                ))
+                <>
+                    {currentOutbox.map(o => (
+                    <div key={o.id}>
+                        <OrderCard 
+                            order={o} 
+                            isOut={true} 
+                            onAction={handleAction}
+                            processingState={processingState}
+                            contracts={contracts}
+                            tokensConfig={activeConfig?.tokens}
+                        />
+                    </div>
+                    ))}
+                    {/* Fillers - Height must match OrderCard height approx 126px */}
+                    {Array.from({ length: Math.max(0, outboxPageSize - currentOutbox.length) }).map((_, i) => (
+                        <div key={`empty-${i}`} className="h-[126px] mb-2"></div>
+                    ))}
+                </>
               )}
             </div>
+            <PaginationControls page={outboxPage} total={totalOutboxPages} setPage={setOutboxPage} />
+          </div>
+
+          {/* Inbox Section */}
+          <div className="flex flex-col h-full min-h-0">
+            <div className="p-5 pb-3 shrink-0 bg-slate-800/10 backdrop-blur-sm sticky top-0 z-10 h-[52px] flex items-center">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                {t.receiver} <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">{sortedInbox.length}</span>
+              </h4>
+            </div>
+            <div className="p-5 pt-0 flex flex-col h-full overflow-hidden">
+              {sortedInbox.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <p className="text-xs text-slate-600">{t.noActiveOrders}</p>
+                </div>
+              ) : (
+                <>
+                  {currentInbox.map(o => (
+                    <div key={o.id}>
+                        <OrderCard 
+                        order={o} 
+                        isOut={false} 
+                        onAction={handleAction}
+                        processingState={processingState}
+                        contracts={contracts}
+                        tokensConfig={activeConfig?.tokens}
+                        />
+                    </div>
+                  ))}
+                  {/* Fillers */}
+                  {Array.from({ length: Math.max(0, inboxPageSize - currentInbox.length) }).map((_, i) => (
+                      <div key={`empty-${i}`} className="h-[126px] mb-2"></div>
+                  ))}
+                </>
+              )}
+            </div>
+            <PaginationControls page={inboxPage} total={totalInboxPages} setPage={setInboxPage} />
           </div>
         </div>
       )}
+
+      <ConfirmModal 
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={() => {
+            executeAction(confirmModal.orderId, confirmModal.method);
+            setConfirmModal({ ...confirmModal, isOpen: false });
+        }}
+        title={t.confirmReleaseTitle}
+        description={t.confirmReleaseDesc}
+        confirmText={t.confirmReleaseBtn}
+        cancelText={t.cancelReleaseBtn}
+      />
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { ethers } from 'ethers';
 import { FaPaperPlane, FaWallet, FaCheckCircle, FaExclamationTriangle, FaChevronDown, FaLayerGroup, FaCoins, FaDollarSign, FaQuestionCircle, FaSync, FaShieldAlt } from 'react-icons/fa';
 import config from './config.json';
 import { useToast } from './components/Toast';
-import { useLanguage } from './App';
+import { useLanguage } from './contexts/LanguageContext';
 
 const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSuccess, refreshBalanceTrigger, activeCount = 0, activeConfig, chainId }) => {
   const toast = useToast();
@@ -77,11 +77,15 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
   }, [selectedToken, activeConfig, chainId, contracts]);
 
   // Calculate Fee in USD
+  const valUSD = React.useMemo(() => {
+      if (!amount || isNaN(amount) || parseFloat(amount) <= 0 || !tokenPrice) return 0;
+      return parseFloat(amount) * tokenPrice;
+  }, [amount, tokenPrice]);
+
   const feeDisplay = React.useMemo(() => {
       if (!amount || isNaN(amount) || parseFloat(amount) <= 0) return null;
       if (!tokenPrice) return null; // Can't calculate without price
 
-      const valUSD = parseFloat(amount) * tokenPrice;
       let fee = valUSD * 0.001; // 0.1%
       
       // Clamp between $0.01 and $1.0
@@ -89,7 +93,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
       if (fee > 1.0) fee = 1.0;
       
       return `$${fee.toFixed(2)}`;
-  }, [amount, tokenPrice]);
+  }, [amount, tokenPrice, valUSD]);
 
   // 点击外部关闭代币下拉框
   useEffect(() => {
@@ -228,6 +232,14 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
 
       const weiAmount = ethers.parseUnits(amount, decimals);
 
+      // Pre-check: Minimum Amount $1
+      // Only check if we have a valid price feed
+      if (tokenPrice > 0 && valUSD < 1.0) {
+          setError(t.minAmountError);
+          setLoading(false);
+          return;
+      }
+
       if (!isNative) {
         
         // 0. 预检查：余额是否充足
@@ -260,28 +272,17 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
       }
 
       // 2. 发起担保转账
-      let overrides = {};
+      let overrides = {
+        gasLimit: 500000 // Manual gas limit to prevent -32603 on some wallets (OKX)
+      };
       if (isNative) {
         overrides.value = weiAmount;
       }
 
-      // FIX: OKX Wallet "Unknown Transaction Type" & "0 Gas" issue
-      // We explicitly fetch and set fee data (Gas Price) to ensure the wallet recognizes the fee.
-      try {
-        const feeData = await provider.getFeeData();
-        if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
-           // EIP-1559 (Preferred for BNB Chain)
-           overrides.maxFeePerGas = feeData.maxFeePerGas;
-           overrides.maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
-        } else if (feeData.gasPrice) {
-           // Legacy fallback
-           overrides.gasPrice = feeData.gasPrice;
-        }
-      } catch (feeError) {
-        console.warn("Failed to fetch fee data:", feeError);
-      }
-
-      // FIX: OKX Wallet often fails to estimate gas correctly or sets it too low.
+      // FIX: Remove manual gas price setting for better compatibility
+      // Some wallets like OKX might fail if both gasPrice/maxFeePerGas are set manually incorrectly
+      // or if they conflict with internal estimation logic.
+      // We rely on the wallet's own gas estimation, but provide a high gasLimit as fallback.
 
       const initiateTx = await escrowContract.initiate(tokenAddress, receiver, weiAmount, overrides);
       const receipt = await initiateTx.wait();
@@ -318,6 +319,27 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
 
       toast.success(t.transactionInitiated);
       
+      // --- Update Local Activity Stats ---
+      try {
+          const STORAGE_KEY = 'handshake_daily_transfers';
+          const today = new Date().toDateString();
+          const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+          
+          let count = 0;
+          if (data.date === today) {
+              count = data.count || 0;
+          }
+          
+          const newCount = count + 1;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: today, count: newCount }));
+          
+          // Dispatch event for ActivityRewards to pick up
+          window.dispatchEvent(new Event('user_transfer_completed'));
+          console.log("Local transfer stats updated:", newCount);
+      } catch (e) {
+          console.warn("Failed to update local stats:", e);
+      }
+      
       // setStep(0);  // 移除
       setAmount(""); 
       // setReceiver(""); // Keep receiver address for convenience
@@ -333,10 +355,12 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
       let errorMessage = t.transactionFailed;
       
       // 解析常见错误
-      const errorString = JSON.stringify(err);
+      const errorString = JSON.stringify(err) + (err.message || "");
       
       if (err.code === 4001) { 
         errorMessage = t.cancelled;
+      } else if (errorString.includes("Transfer amount below $1 minimum")) {
+        errorMessage = t.minAmountError;
       } else if (err.reason) {
         errorMessage = t.transactionFailed + ": " + err.reason;
       } else if (err.info && err.info.error && err.info.error.message) {
@@ -351,7 +375,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
   };
 
   return (
-    <div className="bg-slate-800/40 backdrop-blur-md border border-white/5 p-4 md:p-8 rounded-[2rem] shadow-xl h-auto flex flex-col">
+    <div className="bg-slate-800/40 backdrop-blur-md border border-white/5 p-4 md:p-8 rounded-[2rem] shadow-xl h-[724px] flex flex-col">
       <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2 shrink-0">
         <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
         {t.initiateTransfer}

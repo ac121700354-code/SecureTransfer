@@ -22,6 +22,19 @@ async function main() {
     const [deployer] = await ethers.getSigners();
     console.log(`Deploying with account: ${deployer.address}`);
 
+    // --- 0. Deploy Timelock ---
+    console.log("\n0. Deploying Timelock...");
+    const Timelock = await ethers.getContractFactory("Timelock");
+    const minDelay = 24 * 60 * 60; // 24 hours
+    const proposers = [deployer.address];
+    const executors = [ethers.ZeroAddress]; // Anyone can execute
+    const admin = deployer.address;
+
+    const timelock = await Timelock.deploy(minDelay, proposers, executors, admin);
+    await timelock.waitForDeployment();
+    const timelockAddress = await timelock.getAddress();
+    console.log(`Timelock deployed to: ${timelockAddress}`);
+
     // --- 1. Deploy BufferToken ---
     console.log("\n1. Deploying BufferToken...");
     const BufferToken = await ethers.getContractFactory("BufferToken");
@@ -33,12 +46,13 @@ async function main() {
     let initialSupply = 0n;
     if (network.name.includes("bnb") || network.name.includes("sepolia") || network.name === "hardhat") {
         initialSupply = ethers.parseUnits("100000000", 18);
-        console.log(`  - Minting 100M STP (Chain: ${network.name})`);
+        console.log(`  - Minting 100M ${distributionConfig.tokenSymbol} (Chain: ${network.name})`);
     } else {
         console.log(`  - Side Chain Mode: Initial Supply 0 (Chain: ${network.name})`);
     }
 
-    const bufferToken = await BufferToken.deploy(deployer.address, initialSupply);
+    // Pass the real Timelock address
+    const bufferToken = await BufferToken.deploy(deployer.address, timelockAddress, initialSupply);
     await bufferToken.waitForDeployment();
     const bufferTokenAddress = await bufferToken.getAddress();
     console.log(`BufferToken deployed to: ${bufferTokenAddress}`);
@@ -61,7 +75,7 @@ async function main() {
         // Skip if amount is 0
         if (amountWei === 0n) continue;
 
-        console.log(`  - Transferring ${info.percentage}% (${info.amount} STP) to ${info.description}...`);
+        console.log(`  - Transferring ${info.percentage}% (${info.amount} ${distributionConfig.tokenSymbol}) to ${info.description}...`);
         try {
             const tx = await bufferToken.transfer(info.address, amountWei);
             await tx.wait();
@@ -73,7 +87,7 @@ async function main() {
     
     // Check remaining balance of deployer (should be 0 if all distributed, or remainder)
     const deployerBalance = await bufferToken.balanceOf(deployer.address);
-    console.log(`  Deployer remaining balance: ${ethers.formatUnits(deployerBalance, 18)} STP`);
+    console.log(`  Deployer remaining balance: ${ethers.formatUnits(deployerBalance, 18)} ${distributionConfig.tokenSymbol}`);
 
     // --- 3. Deploy FeeCollector ---
     console.log("\n3. Deploying FeeCollector...");
@@ -134,17 +148,37 @@ async function main() {
         // TODO: Load real feeds from network-config.js
     }
 
-    // --- 6. Post-Deployment Setup ---
+    // --- 6. Deploy ActivityRewards ---
+    console.log("\n6. Deploying ActivityRewards...");
+    const ActivityRewards = await ethers.getContractFactory("ActivityRewards");
+    // Deploy with a signer address (using deployer for now)
+    const activityRewards = await ActivityRewards.deploy(bufferTokenAddress, deployer.address);
+    await activityRewards.waitForDeployment();
+    const activityRewardsAddress = await activityRewards.getAddress();
+    console.log(`ActivityRewards deployed to: ${activityRewardsAddress}`);
+
+    // Fund ActivityRewards with Community Tokens (from Deployer)
+    // Deployer holds initial supply. We transfer some for rewards.
+    // Let's fund 1M STP for rewards initially
+    const rewardFundAmount = ethers.parseUnits("1000000", 18);
+    console.log(`  Funding ActivityRewards with 1M ${distributionConfig.tokenSymbol}...`);
+    const fundTx = await bufferToken.transfer(activityRewardsAddress, rewardFundAmount);
+    await fundTx.wait();
+    console.log("  Funded.");
+
+    // --- 7. Post-Deployment Setup ---
     console.log("Setting Token Price Feed...");
     // Set Native Token Feed in Escrow
     if (aggregatorAddress) {
+        // escrowContract is already defined above if we ran step 6, but if we skipped it might not be.
+        // Re-attach to be safe
         const escrowContract = EscrowProxy.attach(escrowAddress).connect(deployer);
         await escrowContract.setTokenPriceFeed(ethers.ZeroAddress, aggregatorAddress);
         console.log("Set Native Token Price Feed to Mock");
     }
 
-    // --- 7. Whitelist Setup (Auto) ---
-    console.log("\n6. Configuring Whitelist (Auto)...");
+    // --- 8. Whitelist Setup (Auto) ---
+    console.log("\n7. Configuring Whitelist (Auto)...");
     if (aggregatorAddress) {
         const escrowContract = EscrowProxy.attach(escrowAddress).connect(deployer);
         const feeCollectorContract = FeeCollector.attach(feeCollectorAddress).connect(deployer);
@@ -152,7 +186,7 @@ async function main() {
         // Define tokens to whitelist
         const TOKENS_TO_WHITELIST = [
             { symbol: "BNB/ETH (Native)", address: ethers.ZeroAddress },
-            { symbol: "STP", address: bufferTokenAddress },
+            { symbol: distributionConfig.tokenSymbol, address: bufferTokenAddress },
             { symbol: "USDT", address: currentNet.tokens.USDT },
             { symbol: "USDC", address: currentNet.tokens.USDC },
             { symbol: "BTC", address: currentNet.tokens.BTC },
@@ -192,7 +226,7 @@ async function main() {
         console.log("Skipping whitelist setup (No Aggregator available)");
     }
 
-    // --- 8. Save Deployment Info ---
+    // --- 9. Save Deployment Info ---
     const deploymentInfo = {
         network: {
             name: network.name,
@@ -202,7 +236,9 @@ async function main() {
             BufferToken: bufferTokenAddress,
             FeeCollector: feeCollectorAddress,
             EscrowProxy: escrowAddress,
-            MockAggregator: aggregatorAddress
+            MockAggregator: aggregatorAddress,
+            Timelock: timelockAddress,
+            ActivityRewards: activityRewardsAddress
         }
     };
 
@@ -250,9 +286,9 @@ async function main() {
 
     // 2. Buffer Token
     tokensList.push({
-        symbol: "STP",
-        "name": "SecureTransfer Token",
-        logo: "./tokens/bfr-logo.svg?v=12",
+        symbol: distributionConfig.tokenSymbol,
+        "name": "Handshk Token",
+        logo: "/tokens/bfr-logo.svg?v=12",
         address: bufferTokenAddress
     });
 
@@ -292,6 +328,14 @@ async function main() {
             MockAggregator: {
                 address: aggregatorAddress,
                 abi: aggregatorAddress ? JSON.parse(fs.readFileSync(path.join(__dirname, "../artifacts/contracts/MockAggregator.sol/MockAggregator.json"))).abi : []
+            },
+            Timelock: {
+                address: timelockAddress,
+                abi: JSON.parse(fs.readFileSync(path.join(__dirname, "../artifacts/contracts/Timelock.sol/Timelock.json"))).abi
+            },
+            ActivityRewards: {
+                address: activityRewardsAddress,
+                abi: JSON.parse(fs.readFileSync(path.join(__dirname, "../artifacts/contracts/ActivityRewards.sol/ActivityRewards.json"))).abi
             },
             // Add Token Addresses from config
             USDT: { address: currentNet.tokens.USDT },

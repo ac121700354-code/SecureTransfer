@@ -1,12 +1,14 @@
 {
   "network": {
-    "name": "sepolia",
-    "chainId": 11155111
+    "name": "hardhat",
+    "chainId": 31337
   },
   "contracts": {
-    "BufferToken": "0xbcAed2621b68605cD3c8Ac0aF133931804a63220",
-    "FeeCollector": "0xDc7405b939F85cffe3bD842211F4e305B95F3fD9",
-    "EscrowProxy": "0xc47169416c9645F858ff9185Dd3950fad6A99694",
-    "MockAggregator": "0x7cE6B69fa09FdeEfa26902e41cB113ca1d5dDF48"
+    "BufferToken": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+    "FeeCollector": "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
+    "EscrowProxy": "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
+    "MockAggregator": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+    "Timelock": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "ActivityRewards": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e"
   }
 }

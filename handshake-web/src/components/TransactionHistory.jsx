@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { FaHistory, FaArrowUp, FaArrowDown, FaCheckCircle, FaTimesCircle, FaClock, FaBan, FaExternalLinkAlt, FaSpinner, FaSync } from 'react-icons/fa';
-import { useLanguage } from '../App';
+import { FaHistory, FaArrowUp, FaArrowDown, FaCheckCircle, FaTimesCircle, FaClock, FaBan, FaExternalLinkAlt, FaSpinner, FaSync, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshTrigger }) => {
   const { t } = useLanguage();
@@ -11,6 +11,9 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
   const [error, setError] = useState(null);
   const [lastScannedBlock, setLastScannedBlock] = useState(null);
   const [hasMore, setHasMore] = useState(true);
+  const [sentPage, setSentPage] = useState(1);
+  const [receivedPage, setReceivedPage] = useState(1);
+  const pageSize = 5;
 
   // Reset history when account or network changes
   useEffect(() => {
@@ -18,6 +21,8 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
     setLastScannedBlock(null);
     setHasMore(true);
     setError(null);
+    setSentPage(1);
+    setReceivedPage(1);
     // Initial fetch of all history
     fetchAllHistory();
   }, [account, activeConfig]);
@@ -234,9 +239,15 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
 
   const sentHistory = history.filter(h => h.type === 'send');
   const receivedHistory = history.filter(h => h.type !== 'send');
+  
+  const totalSentPages = Math.ceil(sentHistory.length / pageSize) || 1;
+  const totalReceivedPages = Math.ceil(receivedHistory.length / pageSize) || 1;
+
+  const currentSent = sentHistory.slice((sentPage - 1) * pageSize, sentPage * pageSize);
+  const currentReceived = receivedHistory.slice((receivedPage - 1) * pageSize, receivedPage * pageSize);
 
   const HistoryCard = ({ item }) => (
-      <div className="bg-slate-800/40 border p-3 rounded-xl mb-2 transition-all duration-300 border-white/5 hover:border-blue-500/20 hover:bg-slate-800/60">
+      <div className="bg-slate-800/40 border p-3 rounded-xl mb-2 transition-all duration-300 border-white/5 hover:border-blue-500/20 hover:bg-slate-800/60 h-[74px]">
         <div className="flex items-center gap-3 w-full">
            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shadow-sm ring-1 ring-white/5 shrink-0
               ${item.type === 'send' ? 'bg-indigo-500/10 text-indigo-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
@@ -297,8 +308,30 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
       </div>
   );
 
+  const PaginationControls = ({ page, total, setPage }) => (
+    <div className="p-3 border-t border-white/5 flex justify-between items-center bg-slate-800/10 mt-auto">
+        <button 
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-400 hover:text-white transition-all"
+        >
+            <FaChevronLeft size={10} />
+        </button>
+        <span className="text-[10px] text-slate-500 font-mono">
+            {page} / {total}
+        </span>
+        <button 
+            onClick={() => setPage(p => Math.min(total, p + 1))}
+            disabled={page >= total}
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-400 hover:text-white transition-all"
+        >
+            <FaChevronRight size={10} />
+        </button>
+    </div>
+  );
+
   return (
-    <div className="bg-slate-900/20 rounded-[2.5rem] border border-white/5 overflow-hidden min-h-[500px] flex flex-col mt-8">
+    <div className="bg-slate-900/20 rounded-[2.5rem] border border-white/5 overflow-hidden flex flex-col mt-8">
       <div className="p-6 border-b border-white/5 flex justify-between items-center shrink-0 bg-slate-800/20">
         <h3 className="text-white font-bold text-lg flex items-center gap-2">
           <FaHistory className="text-blue-400" />
@@ -322,15 +355,22 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
                 {t.received} <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">{receivedHistory.length}</span>
               </h4>
             </div>
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 pt-0 flex flex-col max-h-[600px]">
+            <div className="p-5 pt-0 flex flex-col h-[420px] overflow-hidden">
                 {loading && history.length === 0 ? (
                      <div className="text-center py-10 text-slate-500 text-xs">{t.loadingHistory}</div>
                 ) : receivedHistory.length === 0 ? (
                      <div className="text-center py-10 text-slate-500 text-xs">{t.noTransactionHistory}</div>
                 ) : (
-                    receivedHistory.map(item => <HistoryCard key={item.id} item={item} />)
+                    <>
+                        {currentReceived.map(item => <HistoryCard key={item.id} item={item} />)}
+                        {/* Fill empty space if less than pageSize items to keep layout stable */}
+                        {Array.from({ length: Math.max(0, pageSize - currentReceived.length) }).map((_, i) => (
+                             <div key={`empty-${i}`} className="h-[74px] mb-2"></div>
+                        ))}
+                    </>
                 )}
             </div>
+            <PaginationControls page={receivedPage} total={totalReceivedPages} setPage={setReceivedPage} />
         </div>
 
         {/* Outbox History */}
@@ -341,15 +381,21 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
                 {t.sent} <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">{sentHistory.length}</span>
               </h4>
             </div>
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 pt-0 flex flex-col max-h-[600px]">
+            <div className="p-5 pt-0 flex flex-col h-[420px] overflow-hidden">
                 {loading && history.length === 0 ? (
                      <div className="text-center py-10 text-slate-500 text-xs">{t.loadingHistory}</div>
                 ) : sentHistory.length === 0 ? (
                      <div className="text-center py-10 text-slate-500 text-xs">{t.noTransactionHistory}</div>
                 ) : (
-                    sentHistory.map(item => <HistoryCard key={item.id} item={item} />)
+                    <>
+                        {currentSent.map(item => <HistoryCard key={item.id} item={item} />)}
+                        {Array.from({ length: Math.max(0, pageSize - currentSent.length) }).map((_, i) => (
+                             <div key={`empty-${i}`} className="h-[74px] mb-2"></div>
+                        ))}
+                    </>
                 )}
             </div>
+            <PaginationControls page={sentPage} total={totalSentPages} setPage={setSentPage} />
         </div>
       </div>
     </div>

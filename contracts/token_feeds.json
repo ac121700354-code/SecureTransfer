@@ -1,0 +1,66 @@
+{
+  "11155111": [
+    {
+      "symbol": "ETH",
+      "address": "0x0000000000000000000000000000000000000000",
+      "feed": "0x694AA1769357215DE4FAC081bf1f309aDC325306", 
+      "comment": "Sepolia ETH/USD Feed"
+    },
+    {
+      "symbol": "HSK",
+      "address": "0xbcAed2621b68605cD3c8Ac0aF133931804a63220",
+      "feed": "0x7cE6B69fa09FdeEfa26902e41cB113ca1d5dDF48",
+      "comment": "Mock Feed for HSK"
+    },
+    {
+      "symbol": "USDT",
+      "address": "0x7169D38820dfd117C3FA1f22a697dBA58d90BA06",
+      "feed": "0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E",
+      "comment": "Sepolia USDT Feed (Example)"
+    }
+  ],
+  "97": [
+    {
+      "symbol": "BNB",
+      "address": "0x0000000000000000000000000000000000000000",
+      "feed": "0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526",
+      "comment": "BSC Testnet BNB/USD Feed"
+    },
+    {
+      "symbol": "BTC",
+      "address": "0x6ce8dA28E2f864420840cF74474eFf5fD80E65B8",
+      "feed": "0x5741306c21795FdCBb9b265Ea0255F499DFe515C",
+      "comment": "BSC Testnet BTC/USD Feed (Token Address is Example BTCB)"
+    },
+    {
+      "symbol": "ETH",
+      "address": "0xd66c6B4F0be8CE5b39D52E0Fd1344c389929B378",
+      "feed": "0x143db3CEEfbdfe5631aDD3E50f7614B6ba708BA7",
+      "comment": "BSC Testnet ETH/USD Feed (Token Address is Example ETH)"
+    },
+    {
+      "symbol": "USDC",
+      "address": "0x64544969ed7EBf5f083679233325356EbE738930",
+      "feed": "0x90c069C4538ad69F791008bb280e72758f86C191",
+      "comment": "BSC Testnet USDC/USD Feed (Token Address is Example USDC)"
+    },
+    {
+      "symbol": "DAI",
+      "address": "0xEC5dCb5Dbf4B114C9d0F65BcCAb49EC54F6A0867",
+      "feed": "0xE4eE17114774043d5126158d48F55079d53a995d",
+      "comment": "BSC Testnet DAI/USD Feed"
+    },
+    {
+      "symbol": "USDT",
+      "address": "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd",
+      "feed": "0xEca2605f0BCF2BA5966372C99837b1F182d3D620",
+      "comment": "BSC Testnet USDT/USD Feed"
+    },
+    {
+      "symbol": "HSK",
+      "address": "0x0000000000000000000000000000000000000000",
+      "feed": "0xEca2605f0BCF2BA5966372C99837b1F182d3D620",
+      "comment": "HSK Token (Update Address after deploy). Using USDT Feed as temporary Mock."
+    }
+  ]
+}

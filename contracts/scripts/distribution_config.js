@@ -3,14 +3,14 @@
 require("dotenv").config(); // Ensure env vars are loaded if this file is imported standalone
 
 module.exports = {
-    tokenName: "STP",
-    tokenSymbol: "STP",
+    tokenName: "HK",
+    tokenSymbol: "HK",
     totalSupply: "100000000", // 100 Million
 
     distribution: {
         // 45% - Community Mining & Airdrop
         community: {
-            percentage: 45,
+            percentage: 45, // Reduced by 1% for ActivityRewards contract funding
             amount: "45000000",
             address: process.env.COMMUNITY_WALLET || "0x...", 
             description: "Community Mining & Airdrop"

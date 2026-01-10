@@ -6,7 +6,7 @@ const OLD_ESCROW_ADDRESS = "0xb6422f04579872B75e1E1D88c016E3589014FAFC";
 
 // Configuration
 const PRIVATE_KEY = process.env.PRIVATE_KEY; 
-const RPC_URL = process.env.RPC_URL || "https://data-seed-prebsc-1-s1.binance.org:8545";
+const RPC_URL = process.env.RPC_URL || "https://bsc-testnet.publicnode.com";
 
 async function main() {
     console.log("Starting Cleanup for OLD Escrow Contract...");
