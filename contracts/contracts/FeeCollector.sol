@@ -59,13 +59,20 @@ contract FeeCollector is Ownable, ReentrancyGuard {
     // 触发回购的最小美元价值 ($10,000)
     uint256 public buybackThresholdUsd = 10_000 * 1e18; 
     
+    // 分配比例 (基点 10000 = 100%)
+    uint256 public burnRatioBps = 9000;      // 90% 销毁
+    // treasuryRatio 由 10000 - burnRatioBps 计算得出
+    
     // 回购功能开关
     bool public buybackEnabled = false;
 
     // 代币 -> 预言机 映射
     mapping(address => address) public priceFeeds;
+    mapping(address => bool) public keepers;
 
     // 事件
+    event KeeperUpdated(address indexed keeper, bool active);
+    event RatiosUpdated(uint256 burnRatio, uint256 treasuryRatio);
     event BuybackExecuted(address indexed token, uint256 amountIn, uint256 stpAmountOut);
     event Burned(uint256 amount);
     event DaoFunded(uint256 amount);
@@ -87,6 +94,27 @@ contract FeeCollector is Ownable, ReentrancyGuard {
     receive() external payable {}
 
     // --- 管理配置 ---
+
+    /**
+     * @notice 设置 Keeper 权限 (用于自动化脚本)
+     * @param _keeper 脚本地址
+     * @param _active 是否启用
+     */
+    function setKeeper(address _keeper, bool _active) external onlyOwner {
+        keepers[_keeper] = _active;
+        emit KeeperUpdated(_keeper, _active);
+    }
+
+    /**
+     * @notice 设置销毁比例
+     * @param _burnRatio 销毁比例 (基点，最大 10000)
+     * @dev 剩余部分 (10000 - _burnRatio) 自动归入国库
+     */
+    function setBurnRatio(uint256 _burnRatio) external onlyOwner {
+        require(_burnRatio <= 10000, "Ratio too high");
+        burnRatioBps = _burnRatio;
+        emit RatiosUpdated(_burnRatio, 10000 - _burnRatio);
+    }
     
     function setDaoTreasury(address _daoTreasury) external onlyOwner {
         require(_daoTreasury != address(0), "Zero address");
@@ -139,15 +167,16 @@ contract FeeCollector is Ownable, ReentrancyGuard {
      * @notice 执行回购与销毁
      * @dev 任何人均可调用，只要满足条件
      * @param tokens 要处理的代币列表
-     * @param minBfrOuts 每个代币交换 BFR 的最小输出量 (滑点保护)
      * @param includeNative 是否处理原生代币
      */
     function executeBuybackAndBurn(
         address[] calldata tokens, 
         uint256[] calldata minBfrOuts,
+        uint256 minBfrFromNative,
         bool includeNative
     ) external nonReentrant {
         require(buybackEnabled, "Buyback disabled");
+        require(msg.sender == owner() || keepers[msg.sender], "Not keeper");
         require(tokens.length == minBfrOuts.length, "Arrays length mismatch");
 
         // 1. 验证总价值门槛
@@ -160,7 +189,7 @@ contract FeeCollector is Ownable, ReentrancyGuard {
         if (includeNative) {
             uint256 ethBal = address(this).balance;
             if (ethBal > 0) {
-                totalBfrBought += _swapEthForBfr(ethBal, 0); // 注意：生产环境应通过预言机计算 minOut 或由参数传入
+                totalBfrBought += _swapEthForBfr(ethBal, minBfrFromNative); 
             }
         }
 
@@ -173,13 +202,13 @@ contract FeeCollector is Ownable, ReentrancyGuard {
             }
         }
 
-        // 4. 分配 BFR (90% 销毁, 10% DAO)
+        // 4. 分配 BFR (根据配置比例)
         require(totalBfrBought > 0, "No BFR bought");
         
-        uint256 burnAmount = (totalBfrBought * 90) / 100;
-        uint256 daoAmount = totalBfrBought - burnAmount;
+        uint256 burnAmount = (totalBfrBought * burnRatioBps) / 10000;
+        uint256 daoAmount = totalBfrBought - burnAmount; // 剩余归 DAO
 
-        // 90% 销毁
+        // 执行销毁
         _burnBfr(burnAmount);
         
         // 10% 转入 DAO

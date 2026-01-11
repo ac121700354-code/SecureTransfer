@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ethers } from 'ethers';
-import { FaPaperPlane, FaWallet, FaCheckCircle, FaExclamationTriangle, FaChevronDown, FaLayerGroup, FaCoins, FaDollarSign, FaQuestionCircle, FaSync, FaShieldAlt } from 'react-icons/fa';
+import { FaPaperPlane, FaWallet, FaCheckCircle, FaExclamationTriangle, FaChevronDown, FaLayerGroup, FaCoins, FaDollarSign, FaQuestionCircle, FaSync, FaShieldAlt, FaGift } from 'react-icons/fa';
 import config from './config.json';
 import { useToast } from './components/Toast';
 import { useLanguage } from './contexts/LanguageContext';
+import ActivityRewards from './components/ActivityRewards';
 
-const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSuccess, refreshBalanceTrigger, activeCount = 0, activeConfig, chainId }) => {
+const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSuccess, refreshBalanceTrigger, activeCount = 0, activeConfig, chainId, onRewardClaimed }) => {
   const toast = useToast();
   const { t } = useLanguage();
   
@@ -375,11 +376,22 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
   };
 
   return (
-    <div className="bg-slate-800/40 backdrop-blur-md border border-white/5 p-4 md:p-8 rounded-[2rem] shadow-xl h-[724px] flex flex-col">
-      <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2 shrink-0">
-        <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
-        {t.initiateTransfer}
-      </h2>
+    <div className="bg-slate-800/40 backdrop-blur-md border border-white/5 p-4 md:p-8 rounded-[2rem] shadow-xl h-[724px] flex flex-col relative">
+      <div className="flex items-center justify-between mb-6 shrink-0">
+        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
+          {t.initiateTransfer}
+        </h2>
+        {/* Activity Rewards Mini Icon */}
+        <ActivityRewards 
+            account={account} 
+            provider={walletProvider}
+            chainId={chainId}
+            activeConfig={activeConfig}
+            onRewardClaimed={onRewardClaimed}
+            miniMode={true}
+        />
+      </div>
       
       <div className="space-y-6 flex-1 overflow-y-auto custom-scrollbar pr-0 md:pr-2">
             <div className="space-y-2">

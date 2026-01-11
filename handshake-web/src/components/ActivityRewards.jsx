@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ethers } from 'ethers';
 import { FaCalendarCheck, FaGift, FaTrophy, FaCoins, FaCheckCircle, FaSpinner, FaBolt } from 'react-icons/fa';
 import { useToast } from './Toast';
 import { useLanguage } from '../contexts/LanguageContext';
 
-// Test Private Key for Debugging (Hardhat Account #0)
-// In production, this signature would come from a secure backend API
-const DEBUG_SIGNER_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-
-const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardClaimed }) => {
+const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardClaimed, miniMode }) => {
   const toast = useToast();
   const { t } = useLanguage();
   
@@ -18,6 +15,7 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
 
   const [streak, setStreak] = useState(0);
   const [lastCheckIn, setLastCheckIn] = useState(0);
+  const [maxStreak, setMaxStreak] = useState(7); // Default 7, will fetch from contract
   const [rewardContract, setRewardContract] = useState(null);
   
   // Get Token Symbol from Config
@@ -25,10 +23,14 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
 
   // --- Daily Transfer Stats Logic (On-Chain) ---
   const [transferCount, setTransferCount] = useState(0); 
+  const [totalTransferCount, setTotalTransferCount] = useState(0);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [dataLoaded, setDataLoaded] = useState(false); // New state to track if data is fully loaded
   const [claimedTiers, setClaimedTiers] = useState([]);
+  const [contractBalance, setContractBalance] = useState(0); // Add state for contract balance
+  const [isBalanceLow, setIsBalanceLow] = useState(false);
 
-  // Fetch transfer count from Escrow Contract logs
+  // Fetch transfer count from Escrow Contract directly (Optimized)
   const fetchOnChainTransferStats = async () => {
     if (!account || !activeConfig?.contracts?.EscrowProxy || !provider) {
         setStatsLoading(false);
@@ -47,108 +49,22 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
             ? new ethers.JsonRpcProvider(rpcUrl) 
             : new ethers.BrowserProvider(window.ethereum);
             
-        // Setup Contract and Filter
+        // Setup Contract
         const escrowContract = new ethers.Contract(escrowAddress, escrowAbi, rpcProvider);
-        const filter = escrowContract.filters.TransferInitiated(null, account);
 
         // Time Calculation
         const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        const startOfDayTimestamp = Math.floor(now.getTime() / 1000);
+        const currentDay = Math.floor(now.getTime() / 1000 / 86400);
 
-        // --- Optimized Back-Scanning Strategy ---
-        const currentBlock = await rpcProvider.getBlockNumber();
-        
-        // Strategy: Optimistically try to fetch ~1 day of blocks in one go.
-        // If it fails (Rate Limit), the loop will catch it and halve the chunk size.
-        const BLOCKS_PER_DAY = 30000; // ~24h on BSC (3s block time)
-        const MAX_SEARCH_BLOCKS = 30000; // Only look back 24h as requested
-        
-        let currentChunkSize = BLOCKS_PER_DAY; // Start big!
-        let scanEnd = currentBlock;
-        let allLogs = [];
-        let isDone = false;
-        
-        // Calculate hard stop block
-        const stopBlockLimit = Math.max(0, currentBlock - MAX_SEARCH_BLOCKS);
+        // Fetch Data in Parallel
+        const [daily, total] = await Promise.all([
+            escrowContract.dailyTransferCounts(account, currentDay),
+            escrowContract.totalTransferCounts(account)
+        ]);
 
-        console.log(`[Stats] Starting scan. Block: ${currentBlock}, Target: ${new Date(startOfDayTimestamp * 1000).toLocaleTimeString()}`);
-
-        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-        while (scanEnd > stopBlockLimit && !isDone) {
-            // Determine scan range
-            const scanStart = Math.max(stopBlockLimit, scanEnd - currentChunkSize);
-            
-            try {
-                // Fetch logs
-                const chunkLogs = await escrowContract.queryFilter(filter, scanStart, scanEnd);
-                
-                if (chunkLogs.length > 0) {
-                    // Sort: Newest first
-                    chunkLogs.sort((a, b) => b.blockNumber - a.blockNumber);
-                    
-                    // Check if we went back far enough (past midnight)
-                    const oldestLogBlock = await rpcProvider.getBlock(chunkLogs[chunkLogs.length - 1].blockNumber);
-                    if (oldestLogBlock.timestamp < startOfDayTimestamp) {
-                        isDone = true; 
-                    }
-                    allLogs = [...allLogs, ...chunkLogs];
-                } else {
-                    // Empty chunk? Check block time to see if we passed midnight
-                    const startBlockObj = await rpcProvider.getBlock(scanStart);
-                    if (startBlockObj && startBlockObj.timestamp < startOfDayTimestamp) {
-                        isDone = true;
-                    }
-                }
-
-                // Success! Move pointer back
-                scanEnd = scanStart - 1;
-                
-                // Optional: If we succeeded with a small chunk, maybe try increasing it slightly? 
-                // For now, keep it stable.
-
-            } catch (err) {
-                 const isRateLimit = err?.message?.includes("rate limit") || err?.error?.message?.includes("rate limit") || err?.info?.error?.code === -32005;
-                 
-                 if (isRateLimit) {
-                    // Adaptive Retry: Halve the chunk size
-                    const newSize = Math.floor(currentChunkSize / 2);
-                    console.warn(`[Stats] Rate limit at ${currentChunkSize}. Retrying with ${newSize}...`);
-                    
-                    if (newSize > 1000) {
-                        currentChunkSize = newSize;
-                        await sleep(1000); // Cooldown
-                        continue; // Retry same loop with smaller size (scanEnd didn't change)
-                    } else {
-                        console.warn("[Stats] Rate limit persistent. Stopping scan.");
-                        isDone = true;
-                    }
-                 } else if (err?.message?.includes("pruned")) {
-                    console.warn("[Stats] History pruned. Stopping.");
-                    isDone = true;
-                 } else {
-                    console.warn("[Stats] Unknown error:", err);
-                    // Skip this failed chunk to avoid infinite loop, but this means missing data
-                    scanEnd = scanStart - 1; 
-                 }
-            }
-        }
-
-        // Final filtering: Ensure logs are actually from today
-        // (We might have fetched a few from yesterday in the last chunk)
-        const validLogs = [];
-        for (const log of allLogs) {
-             try {
-                const block = await rpcProvider.getBlock(log.blockNumber);
-                if (block && block.timestamp >= startOfDayTimestamp) {
-                    validLogs.push(log);
-                }
-             } catch(e) {}
-        }
-        
-        console.log(`[Stats] Found ${validLogs.length} transfers today.`);
-        setTransferCount(validLogs.length);
+        console.log(`[Stats] Daily: ${daily}, Total: ${total}`);
+        setTransferCount(Number(daily));
+        setTotalTransferCount(Number(total));
 
     } catch (e) {
         console.warn("[Stats] Failed to fetch:", e);
@@ -212,13 +128,8 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
     }
   }, [activeConfig, account, provider, chainId]);
 
-  // Mock Tasks Configuration (Static IDs)
-  const TASKS_CONFIG = [
-    { id: 1, count: 1, reward: "2" },
-    { id: 2, count: 3, reward: "6" },
-    { id: 3, count: 5, reward: "10" },
-    { id: 4, count: 10, reward: "20" },
-  ];
+  // Mock Tasks Configuration (Static IDs) -> Replaced by Dynamic Loading
+  const [tasksConfig, setTasksConfig] = useState([]);
 
   // Helper: Generate Daily Nonce (YYYYMMDD + 00 + ID)
   // Uses UTC to match blockchain consistency
@@ -233,22 +144,94 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
 
   const fetchUserData = async (contract, userAddress) => {
     try {
+      // 0. Fetch Tasks Configuration from Contract
+      // (Optimization: In production, maybe cache this or pass as props)
+      let currentTasks = tasksConfig;
+      if (currentTasks.length === 0) {
+          try {
+            const tasksRaw = await contract.getAllTasks();
+            // Transform Struct to JS Object
+            // struct TaskConfig { uint256 taskId; uint256 rewardAmount; uint256 targetCount; TaskType taskType; }
+            currentTasks = tasksRaw.map(t => ({
+                id: Number(t.taskId),
+                count: Number(t.targetCount),
+                reward: ethers.formatEther(t.rewardAmount),
+                type: Number(t.taskType) // 0=DAILY, 1=CUMULATIVE
+            }));
+            // Sort by target count
+            currentTasks.sort((a, b) => a.count - b.count);
+            setTasksConfig(currentTasks);
+          } catch(e) {
+              console.error("Failed to fetch tasks config", e);
+          }
+      }
+
       // 1. Fetch Check-in Data
       const info = await contract.userCheckIns(userAddress);
       setStreak(Number(info.streak));
       setLastCheckIn(Number(info.lastCheckInTime));
       
+      // 1.1 Fetch Max Streak Config
+      try {
+          const max = await contract.maxStreakReward();
+          setMaxStreak(Number(max));
+      } catch(e) {}
+      
       // 2. Fetch Daily Claim Status
       // We check the status of each task for "Today"
       const claims = [];
-      for (const task of TASKS_CONFIG) {
-          const dailyNonce = getDailyNonce(task.id);
-          const isUsed = await contract.usedNonces(userAddress, dailyNonce);
-          if (isUsed) {
-              claims.push(dailyNonce);
+      const now = new Date();
+      const currentDay = Math.floor(now.getTime() / 1000 / 86400);
+
+      for (const task of currentTasks) {
+          // Check userTaskStatus(address, taskId)
+          // Contract returns: lastClaimedDay (for DAILY) or 1 (for CUMULATIVE)
+          const status = await contract.userTaskStatus(userAddress, task.id);
+          const statusNum = Number(status);
+
+          if (task.type === 0) { // DAILY
+             // If stored day == current day, it's claimed
+             if (statusNum === currentDay) {
+                 claims.push(task.id);
+             }
+          } else { // CUMULATIVE
+             // If status > 0, it's claimed
+             if (statusNum > 0) {
+                 claims.push(task.id);
+             }
           }
       }
       setClaimedTiers(claims);
+
+      // 3. Fetch Contract Balance (Reward Pool)
+      try {
+        // Contract variable is 'token', not 'rewardToken'
+        const rewardTokenAddress = await contract.token(); 
+        const erc20Abi = ["function balanceOf(address) view returns (uint256)"];
+        
+        // Use contract.runner (provider/signer) for read-only call
+        const rewardToken = new ethers.Contract(rewardTokenAddress, erc20Abi, contract.runner);
+        
+        // Ethers v6 uses 'target', v5 uses 'address'
+        const targetAddr = contract.target || contract.address;
+        
+        const bal = await rewardToken.balanceOf(targetAddr); 
+        const balFmt = Number(ethers.formatEther(bal));
+        setContractBalance(balFmt);
+        
+        // If balance < 100 HK (arbitrary low threshold), mark as low
+        if (balFmt < 100) {
+            setIsBalanceLow(true);
+        } else {
+            setIsBalanceLow(false);
+        }
+      } catch (err) {
+          console.warn("Failed to fetch reward pool balance:", err);
+          // If fetch fails, we shouldn't assume it's low unless we want to block actions.
+          // Better to show 0 or unknown. For safety, let's keep isBalanceLow false but log error.
+      }
+
+      setDataLoaded(true); // Mark data as loaded
 
     } catch (error) {
       console.error("Failed to fetch user data:", error);
@@ -263,6 +246,11 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
   const handleCheckIn = async () => {
     if (isCheckedInToday) return;
     
+    if (!account) {
+        toast.error(t.pleaseConnectWallet);
+        return;
+    }
+
     if (!rewardContract) {
         toast.error(t.wrongNetwork || "Contract not connected! Check network.");
         return;
@@ -275,10 +263,11 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
       await tx.wait();
 
       // Calculate reward for this check-in
-      // Logic mirrors contract: if (streak > 7) reward = 7 else reward = streak
+      // Logic: Cycle (1..maxStreak)
       // Note: 'streak' state here is OLD streak. We need next streak.
       const nextStreak = streak + 1;
-      const rewardAmt = nextStreak > 7 ? 7 : nextStreak;
+      const cycleDay = (nextStreak - 1) % maxStreak + 1;
+      const rewardAmt = cycleDay;
       
       toast.success(t.checkInSuccess.replace('{amount}', rewardAmt).replace('{symbol}', tokenSymbol));
       
@@ -308,7 +297,12 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
     }
   };
 
-  const handleClaimReward = async (amount, nonce) => {
+  const handleClaimReward = async (task, nonce) => {
+    if (!account) {
+        toast.error(t.pleaseConnectWallet);
+        return;
+    }
+
     if (!rewardContract) {
         toast.error(t.wrongNetwork || "Contract not connected!");
         return;
@@ -318,59 +312,13 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
     setClaimingNonces(prev => [...prev, nonce]);
     
     try {
-      // --- Adaptive Signer Logic ---
-      const debugWallet = new ethers.Wallet(DEBUG_SIGNER_KEY);
-      // Ensure chainId is correctly typed for packing
-      const chainIdVal = BigInt(chainId);
-      let signature;
-
-      let onChainSigner;
-      try {
-          onChainSigner = await rewardContract.signer();
-      } catch (e) {
-          console.warn("Could not fetch signer:", e);
-      }
-
-      // Determine Signing Strategy
-      // 1. If contract signer is a known Debug Key -> Use Local Wallet (Dev Mode)
-      // 2. Otherwise -> User signs for themselves (Self-Claim Mode)
-      //    (Contract allows recoveredSigner == msg.sender)
-
-      const isDebugSigner = onChainSigner && onChainSigner.toLowerCase() === debugWallet.address.toLowerCase();
+      // Call New Contract Function: claimTaskReward(uint256 taskId)
+      // Note: rewardAmount is now handled on-chain for security
+      const tx = await rewardContract.claimTaskReward(task.id);
       
-      if (isDebugSigner) {
-          console.log("Using local debug key as signer");
-          const messageHash = ethers.solidityPackedKeccak256(
-            ["address", "uint256", "uint256", "uint256", "address"],
-            [account, amount, nonce, chainIdVal, await rewardContract.getAddress()]
-          );
-          signature = await debugWallet.signMessage(ethers.getBytes(messageHash));
-      } else {
-          // Standard User Claim (Self-Signed)
-          console.log("Using connected wallet for Self-Claiming");
-          
-          try {
-            const targetProvider = provider || window.ethereum;
-            const browserProvider = new ethers.BrowserProvider(targetProvider);
-            const signer = await browserProvider.getSigner();
-            
-            const messageHash = ethers.solidityPackedKeccak256(
-                ["address", "uint256", "uint256", "uint256", "address"],
-                [account, amount, nonce, chainIdVal, await rewardContract.getAddress()]
-            );
-            signature = await signer.signMessage(ethers.getBytes(messageHash));
-          } catch (signErr) {
-             console.error("Signing failed:", signErr);
-             setClaimingNonces(prev => prev.filter(n => n !== nonce));
-             return; // User rejected signature or error
-          }
-      }
-
-      // 2. Call Contract with generated signature
-      const tx = await rewardContract.claimReward(amount, nonce, signature);
       toast.info(t.claiming);
       await tx.wait();
-      toast.success(t.claimSuccess.replace('{amount}', ethers.formatEther(amount)).replace('{symbol}', tokenSymbol));
+      toast.success(t.claimSuccess.replace('{amount}', task.reward).replace('{symbol}', tokenSymbol));
       
       setClaimedTiers(prev => [...prev, nonce]); // Update local state immediately
       
@@ -382,7 +330,12 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
       console.error(error);
       const msg = error.reason || error.message || "Claim failed";
       
-      if (msg.includes("Insufficient reward balance") || msg.includes("transfer amount exceeds balance")) {
+      if (msg.includes("Task not completed")) {
+          toast.error(t.taskNotCompleted || "Task not completed yet!");
+      } else if (msg.includes("Already claimed today")) {
+          toast.error(t.alreadyClaimed || "Already claimed today!");
+          setClaimedTiers(prev => [...prev, nonce]);
+      } else if (msg.includes("Insufficient reward balance")) {
           toast.error(t.insufficientRewardBalance);
       } else {
           toast.error(msg);
@@ -393,80 +346,192 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
     }
   };
 
-  return (
-    <div className="bg-slate-900/50 rounded-2xl border border-white/5 p-6 shadow-xl relative overflow-hidden backdrop-blur-md">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <div className="bg-gradient-to-r from-pink-500 to-rose-500 p-1.5 rounded-lg shadow-lg shadow-pink-500/20">
-            <FaGift className="text-white text-sm" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-white leading-tight">{t.activityRewardsTitle}</h2>
-            <p className="text-slate-400 text-xs">{t.activityRewardsDesc}</p>
-          </div>
-        </div>
-      </div>
+  // --- View Mode Logic ---
+  const [isOpen, setIsOpen] = useState(false);
+  const [totalPotentialReward, setTotalPotentialReward] = useState(0);
+  const [claimableToday, setClaimableToday] = useState(0);
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* 1. Daily Check-In (Compact) */}
-        <div className="lg:col-span-4 bg-slate-800/40 rounded-xl p-4 border border-white/5 flex flex-col justify-between">
-            <div className="flex justify-between items-start mb-4">
+  useEffect(() => {
+    // Calculate max reward when tasks load
+    if (tasksConfig.length > 0) {
+        let total = 0;
+        let todayClaimable = 0;
+
+        // 1. Calculate Check-in Reward for Today (if not checked in)
+        if (!isCheckedInToday) {
+             const nextStreak = streak + 1;
+             const cycleDay = (nextStreak - 1) % maxStreak + 1;
+             todayClaimable += cycleDay;
+        }
+
+        tasksConfig.forEach(t => {
+            const val = parseFloat(t.reward);
+            
+            // Total Potential Calculation
+            if (t.type === 1) total += val; // Cumulative
+            else total += val * 30; // Daily * 30 days
+
+            // Today Claimable Calculation
+            const currentCount = t.type === 0 ? transferCount : totalTransferCount;
+            const isCompleted = currentCount >= t.count;
+            const isClaimed = claimedTiers.includes(t.id);
+            
+            // If completed but NOT claimed, it's claimable now
+            if (isCompleted && !isClaimed) {
+                todayClaimable += val;
+            }
+            // If DAILY task and NOT completed yet, it's potentially claimable today
+            else if (t.type === 0 && !isCompleted && !isClaimed) {
+                todayClaimable += val;
+            }
+        });
+        
+        setTotalPotentialReward(Math.floor(total));
+        setClaimableToday(Number(todayClaimable.toFixed(1)));
+    }
+  }, [tasksConfig, isCheckedInToday, streak, maxStreak, transferCount, totalTransferCount, claimedTiers]);
+
+  // --- Mini Mode (Icon Only) ---
+  const MiniModeIcon = () => (
+      <button 
+          onClick={() => setIsOpen(true)}
+          className={`
+            relative group flex items-center gap-2 px-3 py-1.5 rounded-full transition-all active:scale-95
+            ${claimableToday > 0 
+                ? 'bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 hover:bg-yellow-500/20 shadow-[0_0_10px_rgba(234,179,8,0.1)]' 
+                : 'bg-slate-800/50 border border-white/5 hover:bg-slate-700/50'}
+          `}
+          title={t.activityRewardsTitle}
+      >
+          <div className="relative">
+            {claimableToday > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+                </span>
+            )}
+            <FaGift className={`${claimableToday > 0 ? 'text-yellow-400' : 'text-slate-400 group-hover:text-white'}`} size={14} />
+          </div>
+          
+          {claimableToday > 0 && (
+              <span className="text-xs font-bold text-yellow-100 group-hover:text-white tracking-wide">
+                  {t.rewardsAvailable?.replace('{amount}', claimableToday) || `${claimableToday} HK`}
+              </span>
+          )}
+      </button>
+  );
+
+  if (!isOpen) {
+      if (miniMode) {
+          return <MiniModeIcon />;
+      }
+      return null; 
+  }
+
+  // Use Portal to render the modal at the document body level
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="relative w-full max-w-3xl max-h-[85vh] overflow-hidden bg-slate-900 rounded-2xl border border-white/10 shadow-2xl shadow-black/50 flex flex-col">
+            {/* Close Button - Sticky/Fixed Header */}
+            <div className="absolute top-0 right-0 z-20 p-4 bg-gradient-to-b from-slate-900 via-slate-900/80 to-transparent">
+                <button 
+                    onClick={() => setIsOpen(false)}
+                    className="p-2 rounded-full bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white transition-colors shadow-lg border border-white/5"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 md:p-6 custom-scrollbar">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-5 pr-12">
+                    <div className="flex items-center gap-3">
+                    <div className="bg-gradient-to-r from-pink-500 to-rose-500 p-2 rounded-lg shadow-lg shadow-pink-500/20">
+                        <FaGift className="text-white text-lg" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-white leading-tight">{t.activityRewardsTitle}</h2>
+                        <div className="flex items-center gap-2">
+                            <p className="text-slate-400 text-xs">{t.activityRewardsDesc}</p>
+                            {/* Pool Balance Indicator */}
+                            <div className={`text-[10px] px-2 py-0.5 rounded-full border flex items-center gap-1 ${isBalanceLow ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-green-500/10 border-green-500/30 text-green-400'}`}>
+                                <div className={`w-1.5 h-1.5 rounded-full ${isBalanceLow ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`}></div>
+                                {isBalanceLow ? (t.lowPoolBalance || "Low Pool Balance") : `${t.poolBalance || "Pool"}: ${Math.floor(contractBalance)} ${tokenSymbol}`}
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+
+                {isBalanceLow && (
+                    <div className="mb-4 bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex items-center gap-3">
+                        <FaBolt className="text-red-400" />
+                        <div className="text-xs text-red-200">
+                            <strong>{t.rewardPoolEmptyTitle || "Reward Pool Empty!"}</strong> {t.rewardPoolEmptyDesc || "The contract has insufficient funds. Please come back tomorrow or contact support."}
+                        </div>
+                    </div>
+                )}
+
+                <div className="flex flex-col gap-4">
+
+        {/* 1. Daily Check-In (Top Full Width) */}
+        <div className={`bg-slate-800/40 rounded-xl p-4 border border-white/5 ${isBalanceLow ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
                 <div>
                     <h3 className="text-sm font-bold text-white flex items-center gap-1.5 mb-0.5">
                     <FaCalendarCheck className="text-blue-400" /> 
                     {t.dailyCheckIn}
                     </h3>
-                    <p className="text-[10px] text-slate-500 max-w-[200px] leading-tight">
+                    <p className="text-[10px] text-slate-500">
                         {t.checkInRules.replace('{symbol}', tokenSymbol)}
                     </p>
                 </div>
-                <div className="text-right">
-                    <div className="text-[10px] text-slate-500 font-bold uppercase">{t.streak}</div>
-                    <div className="text-2xl font-black text-blue-400 leading-none">{streak}<span className="text-xs text-slate-600 font-medium ml-0.5">{t.days}</span></div>
+                <div className="flex items-center gap-2 bg-slate-900/50 px-2.5 py-1.5 rounded-lg border border-white/5">
+                    <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">{t.streak}</div>
+                    <div className="text-xl font-black text-blue-400 leading-none">{streak}<span className="text-[10px] text-slate-600 font-medium ml-1">{t.days}</span></div>
                 </div>
             </div>
 
-            {/* Stepper for 7 Days */}
-            <div className="flex items-center justify-between mb-8 relative px-1">
-                {/* Connecting Line */}
-                <div className="absolute top-1/2 left-0 w-full h-0.5 bg-slate-700/50 -z-10 rounded-full"></div>
-                
-                {[1,2,3,4,5,6,7].map(day => {
-                    const isUnlocked = day <= streak;
-                    const isNext = day === streak + 1;
-                    const rewardAmount = day > 7 ? 7 : day;
+            {/* 7-Day Grid Layout */}
+            <div className="grid grid-cols-7 gap-1.5 md:gap-3 mb-4">
+                {Array.from({length: maxStreak}, (_, i) => i + 1).map(day => {
+                    // Logic: N-day cycle display
+                    const currentCycleDay = (streak - 1) % maxStreak + 1;
+                    const isUnlocked = streak > 0 && day <= currentCycleDay;
+                    const isNext = streak > 0 ? (day === currentCycleDay + 1) : (day === 1);
+                    const effectiveIsNext = (streak % maxStreak === 0) ? (day === 1) : isNext;
+                    
+                    const rewardAmount = day; 
                     
                     return (
-                        <div key={day} className="relative group">
+                        <div key={day} className={`
+                            relative group flex flex-col items-center justify-center py-2 rounded-lg border transition-all
+                            ${isUnlocked 
+                                ? 'bg-blue-500/10 border-blue-500/30' 
+                                : effectiveIsNext
+                                    ? 'bg-slate-800 border-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.15)] scale-105'
+                                    : 'bg-slate-900/50 border-white/5 opacity-60'}
+                        `}>
+                            {/* Day Number / Check Icon */}
                             <div className={`
-                                w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-all z-10 cursor-default
+                                w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-all mb-1
                                 ${isUnlocked 
-                                    ? 'bg-blue-500 border-blue-500 text-white shadow-md shadow-blue-500/30' 
-                                    : isNext
-                                        ? 'bg-slate-800 border-blue-500/50 text-blue-400 animate-pulse'
-                                        : 'bg-slate-900 border-slate-700 text-slate-600'}
+                                    ? 'bg-blue-500 border-blue-500 text-white' 
+                                    : effectiveIsNext
+                                        ? 'bg-transparent border-blue-400 text-blue-400 animate-pulse'
+                                        : 'bg-slate-800 border-slate-700 text-slate-600'}
                             `}>
-                                {isUnlocked ? <FaCheckCircle size={10} /> : day}
+                                {isUnlocked ? <FaCheckCircle /> : day}
                             </div>
                             
-                            {/* Reward Badge (Hover) - Optional, kept for extra detail if needed, or removed if redundant. Keeping as "tooltip" style is fine. */}
-                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-                                <div className="bg-slate-900 text-[9px] text-white px-1.5 py-0.5 rounded border border-white/10 whitespace-nowrap shadow-xl flex items-center gap-1">
-                                    <FaCoins className="text-yellow-400" size={8} />
-                                    <span>+{rewardAmount} {tokenSymbol}</span>
-                                </div>
-                                {/* Triangle arrow */}
-                                <div className="w-2 h-2 bg-slate-900 border-r border-b border-white/10 rotate-45 absolute -bottom-1 left-1/2 -translate-x-1/2"></div>
-                            </div>
-                            
-                            {/* Static Reward Label - Always Visible */}
+                            {/* Reward Text */}
                             <div className={`
-                                absolute -bottom-5 left-1/2 -translate-x-1/2 text-[8px] font-bold whitespace-nowrap
-                                ${isNext ? 'text-blue-400' : 'text-slate-500'}
+                                text-[10px] font-bold whitespace-nowrap
+                                ${effectiveIsNext ? 'text-blue-400' : 'text-slate-500'}
                             `}>
-                                +{rewardAmount} {tokenSymbol}
+                                +{rewardAmount}
                             </div>
+                            <div className={`text-[8px] font-medium uppercase mt-0.5 ${effectiveIsNext ? 'text-blue-400/80' : 'text-slate-600'}`}>{tokenSymbol}</div>
                         </div>
                     );
                 })}
@@ -474,29 +539,31 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
 
             <button
                 onClick={handleCheckIn}
-                disabled={checkInLoading || !rewardContract || isCheckedInToday}
+                disabled={checkInLoading || (account ? (!rewardContract || isCheckedInToday) : false)}
                 className={`
                     w-full py-2.5 rounded-lg font-bold text-xs tracking-wide transition-all flex justify-center items-center gap-2
                     ${isCheckedInToday
                         ? 'bg-slate-700/50 text-slate-400 cursor-default border border-white/5'
                         : checkInLoading 
                             ? 'bg-slate-700 text-slate-400 cursor-wait' 
-                            : !rewardContract 
-                                ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 active:scale-[0.98]'}
+                            : !account
+                                ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20'
+                                : !rewardContract 
+                                    ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 active:scale-[0.98]'}
                 `}
             >
                 {checkInLoading 
                     ? <FaSpinner className="animate-spin" /> 
                     : isCheckedInToday 
                         ? <><FaCheckCircle /> {t.checkedIn}</> 
-                        : (!rewardContract ? t.wrongNetwork : t.checkInNow)
+                        : (account && !rewardContract ? t.wrongNetwork : t.checkInNow)
                 }
             </button>
         </div>
 
-        {/* 2. Tasks List (Compact) */}
-        <div className="lg:col-span-8 bg-slate-800/40 rounded-xl p-4 border border-white/5 flex flex-col h-full">
+        {/* 2. Tasks List (Bottom Full Width) */}
+        <div className={`bg-slate-800/40 rounded-xl p-5 border border-white/5 flex flex-col h-full ${isBalanceLow ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
             <div className="flex justify-between items-center mb-3">
                 <div className="flex items-center gap-3">
                     <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
@@ -504,33 +571,36 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
                         {t.dailyMissions}
                     </h3>
                     
-                    {/* Simple Text Badge */}
-                    <div className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors flex items-center gap-1.5
-                        ${transferCount > 0 
-                            ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' 
-                            : 'bg-slate-800 border-white/5 text-slate-500'}
-                    `}>
-                        {statsLoading ? (
-                            <FaSpinner className="animate-spin text-[10px]" />
-                        ) : (
-                            <>
-                                {transferCount > 0 && <FaBolt className="animate-pulse text-[9px]" />}
-                                {transferCount > 0 
-                                    ? t.transfersToday.replace('{count}', transferCount)
-                                    : t.noTransfersToday}
-                            </>
-                        )}
+                    <div className="flex gap-2">
+                        {/* Daily Badge */}
+                        <div className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors flex items-center gap-1.5
+                            ${transferCount > 0 
+                                ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' 
+                                : 'bg-slate-800 border-white/5 text-slate-500'}
+                        `}>
+                            {statsLoading ? (
+                                <FaSpinner className="animate-spin text-[10px]" />
+                            ) : (
+                                <>
+                                    {transferCount > 0 && <FaBolt className="animate-pulse text-[9px]" />}
+                                    {transferCount > 0 
+                                        ? t.transfersToday.replace('{count}', transferCount)
+                                        : t.noTransfersToday}
+                                </>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
 
+            {/* Task List */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {TASKS_CONFIG.map((task) => {
-                const dailyNonce = getDailyNonce(task.id);
-                const isCompleted = transferCount >= task.count;
-                const isClaimed = claimedTiers.includes(dailyNonce);
-                const progress = Math.min(100, (transferCount / task.count) * 100);
-                const isThisLoading = claimingNonces.includes(dailyNonce);
+            {tasksConfig.map((task) => {
+                const currentCount = task.type === 0 ? transferCount : totalTransferCount;
+                const isCompleted = currentCount >= task.count;
+                const isClaimed = claimedTiers.includes(task.id);
+                const progress = Math.min(100, (currentCount / task.count) * 100);
+                const isThisLoading = claimingNonces.includes(task.id);
                 
                 return (
                 <div key={task.id} className={`
@@ -557,7 +627,7 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
                             </div>
                             <div className="min-w-0">
                                 <div className="text-xs font-bold text-slate-300 truncate">
-                                    {t.completeTransfers.replace('{count}', task.count)}
+                                    {task.type === 0 ? t.completeTransfers.replace('{count}', task.count) : t.totalTransfers.replace('{count}', task.count)}
                                 </div>
                                 <div className="text-[10px] font-medium text-slate-500 flex items-center gap-1 mt-0.5">
                                     <FaCoins className="text-yellow-500" size={8} /> 
@@ -567,19 +637,21 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
                         </div>
 
                         <button
-                        onClick={() => handleClaimReward(ethers.parseEther(task.reward), dailyNonce)}
-                        disabled={!isCompleted || isClaimed || isThisLoading}
+                        onClick={() => handleClaimReward(task, task.id)}
+                        disabled={!dataLoaded || (account ? (!isCompleted || isClaimed || isThisLoading) : false)}
                         className={`
                             px-3 py-1.5 rounded text-[10px] font-bold transition-all shrink-0 min-w-[60px] flex justify-center
-                            ${isClaimed 
-                                ? 'bg-transparent text-green-500 cursor-default' 
-                                : isCompleted 
-                                    ? 'bg-yellow-500 hover:bg-yellow-400 text-slate-900 shadow-md shadow-yellow-500/20' 
-                                    : 'bg-slate-800 text-slate-600 cursor-not-allowed border border-white/5'}
+                            ${!dataLoaded
+                                ? 'bg-slate-800 text-slate-600 cursor-wait border border-white/5'
+                                : isClaimed 
+                                    ? 'bg-transparent text-green-500 cursor-default' 
+                                    : (!account || isCompleted)
+                                        ? 'bg-yellow-500 hover:bg-yellow-400 text-slate-900 shadow-md shadow-yellow-500/20' 
+                                        : 'bg-slate-800 text-slate-600 cursor-not-allowed border border-white/5'}
                         `}
                         >
-                        {isThisLoading ? (
-                            <FaSpinner className="animate-spin text-slate-900" />
+                        {isThisLoading || !dataLoaded ? (
+                            <FaSpinner className="animate-spin text-slate-500" />
                         ) : isClaimed ? (
                             <span className="flex items-center gap-1"><FaCheckCircle /> {t.claimed}</span>
                         ) : t.claim}
@@ -590,8 +662,11 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
             })}
             </div>
         </div>
-      </div>
-    </div>
+                </div>
+            </div>
+        </div>
+    </div>,
+    document.body
   );
 };
 

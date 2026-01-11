@@ -618,20 +618,6 @@ function AppContent() {
           <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8">
             <IntroSection />
 
-            {account && (
-                <div className="mb-6">
-                    <ErrorBoundary>
-                        <ActivityRewards 
-                            account={account} 
-                            provider={walletProvider}
-                            chainId={chainId}
-                            activeConfig={activeConfig}
-                            onRewardClaimed={() => setRefreshTrigger(prev => (typeof prev === 'number' ? prev + 1 : 1))}
-                        />
-                    </ErrorBoundary>
-                </div>
-            )}
-            
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
               <div className="lg:col-span-4 space-y-8">
                 <div className="sticky top-28">
@@ -644,6 +630,7 @@ function AppContent() {
                         activeCount={activeCount}
                         chainId={chainId}
                         activeConfig={activeConfig}
+                        onRewardClaimed={() => setRefreshTrigger(prev => (typeof prev === 'number' ? prev + 1 : 1))}
                       />
                     </ErrorBoundary>
               </div>

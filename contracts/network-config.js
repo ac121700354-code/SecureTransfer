@@ -1,22 +1,11 @@
 module.exports = {
-    // Hardhat Local
-    "hardhat": {
-        router: "0xD99D1c33F9fC3444f8101754aBC46c52416550D1", 
-        weth: "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
-        tokens: {
-            USDT: "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd",
-            USDC: "0x64544969ed7EBf5f083679233325356EbE738930",
-            BTC: "0x6ce8dA28E2f864420840cF74474eFf5fD80E65B8",
-            ETH: "0xd66c6B4F0be8CE5b39D52E0Fd1344c389929B378"
-        }
-    },
-
     // BNB Chain Testnet
     "bnb_testnet": {
         router: "0xD99D1c33F9fC3444f8101754aBC46c52416550D1", // PancakeSwap V2 Testnet
         weth: "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",   // WBNB Testnet
         tokens: {
             USDT: "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd",
+            USD1: "0x54eC4711c4a429D7b0466dd169079f276a868462", // User provided
             USDC: "0x64544969ed7EBf5f083679233325356EbE738930",
             BTC: "0x6ce8dA28E2f864420840cF74474eFf5fD80E65B8",
             ETH: "0xd66c6B4F0be8CE5b39D52E0Fd1344c389929B378"
@@ -54,8 +43,7 @@ module.exports = {
         tokens: {
             USDT: "0x7169D38820dfd117C3FA1f22a697dBA58d90BA06", // USDT Sepolia (Mock)
             USDC: "0xda9d4f9b69ac629241243741487b755c66a88193", // USDC Sepolia (Mock)
-            BTC: "0x8e81547879549925bA8e3d23199859A302693259",  // WBTC Sepolia (Mock)
-            ETH: "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14"   // WETH
+            BTC: "0x8e81547879549925bA8e3d23199859A302693259"   // WBTC Sepolia (Mock)
         }
     },
 

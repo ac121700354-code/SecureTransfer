@@ -72,6 +72,32 @@ contract SecureHandshakeUnlimitedInbox is
     uint256 public maxPendingOutbox; // 限制付款方：防止单地址滥用合约占用存储
     uint256 public feeBps; // 基础费率 (基点: 10 = 0.1%)
 
+    struct UserStats {
+        uint32 lastDay;
+        uint224 dailyCount;
+        uint256 totalCount;
+    }
+    mapping(address => UserStats) private _userStats;
+
+    /**
+     * @notice 获取用户指定日期的转账次数
+     * @dev 仅保留当天的记录。查询旧日期将返回 0。
+     */
+    function dailyTransferCounts(address user, uint256 day) external view returns (uint256) {
+        UserStats memory stats = _userStats[user];
+        if (stats.lastDay == day) {
+            return stats.dailyCount;
+        }
+        return 0;
+    }
+
+    /**
+     * @notice 获取用户历史总转账次数
+     */
+    function totalTransferCounts(address user) external view returns (uint256) {
+        return _userStats[user].totalCount;
+    }
+
     // 事件定义
     event TransferInitiated(bytes32 indexed id, address indexed sender, address indexed receiver, address token, uint256 amount);
     event TransferSettled(bytes32 indexed id, address indexed sender, address indexed receiver, address token, uint256 amount, string action);
@@ -166,7 +192,20 @@ contract SecureHandshakeUnlimitedInbox is
             _nonce++
         ));
 
-        // 6. 资金锁定
+        // 6. 记录每日转账次数（纯链上活动验证）
+        // Gas 优化：复用同一个存储槽，新的一天自动重置
+        uint256 currentDay = block.timestamp / 86400;
+        UserStats storage stats = _userStats[msg.sender];
+        
+        if (stats.lastDay == currentDay) {
+            stats.dailyCount++;
+        } else {
+            stats.lastDay = uint32(currentDay);
+            stats.dailyCount = 1;
+        }
+        stats.totalCount++;
+
+        // 7. 资金锁定
         if (!isNative) {
             // ERC20: 从用户钱包转入合约
             IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
