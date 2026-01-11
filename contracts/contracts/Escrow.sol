@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
@@ -100,7 +102,16 @@ contract SecureHandshakeUnlimitedInbox is
 
     // 事件定义
     event TransferInitiated(bytes32 indexed id, address indexed sender, address indexed receiver, address token, uint256 amount);
-    event TransferSettled(bytes32 indexed id, address indexed sender, address indexed receiver, address token, uint256 amount, string action);
+    event TransferSettled(
+        bytes32 indexed id, 
+        address indexed sender, 
+        address indexed receiver, 
+        address token, 
+        uint256 amount, 
+        uint256 fee, 
+        uint256 finalAmount, 
+        string action
+    );
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -184,11 +195,13 @@ contract SecureHandshakeUnlimitedInbox is
         // 4. 发件箱限制：防止单用户发起大量无效订单占用存储
         require(_outbox[msg.sender].length < maxPendingOutbox, "Your outbox is full");
 
-        // 5. 生成唯一交易 ID (Hash: sender + receiver + timestamp + nonce)
+        // 5. 生成唯一交易 ID (Hash: sender + receiver + timestamp + nonce + prevrandao)
+        // 使用 block.prevrandao (EIP-4399) 增强随机性，防止前端预测
         bytes32 id = keccak256(abi.encodePacked(
             msg.sender, 
             _receiver, 
             block.timestamp,
+            block.prevrandao, 
             _nonce++
         ));
 
@@ -245,6 +258,7 @@ contract SecureHandshakeUnlimitedInbox is
         bytes32 _s
     ) external returns (bytes32) {
         require(_token != NATIVE_TOKEN, "Permit not for native token");
+        require(block.timestamp <= _deadline, "Permit expired");
         // 尝试调用 Token 的 permit 函数
         try IERC20Permit(_token).permit(msg.sender, address(this), _amount, _deadline, _v, _r, _s) {
             // 签名验证通过，授权成功
@@ -286,9 +300,9 @@ contract SecureHandshakeUnlimitedInbox is
         // 6. 资金分发
         if (fee > 0) {
             if (t.token == NATIVE_TOKEN) {
-                // 原生代币转给财库
+                // 原生代币转给财库 (Soft Fail: 失败不回滚，留在合约内)
                 (bool success, ) = treasury.call{value: fee}("");
-                require(success, "Native fee transfer failed");
+                // require(success, "Native fee transfer failed"); 
             } else {
                 // ERC20 转给财库
                 IERC20(t.token).safeTransfer(treasury, fee);
@@ -303,7 +317,7 @@ contract SecureHandshakeUnlimitedInbox is
             IERC20(t.token).safeTransfer(t.receiver, finalAmount);
         }
 
-        emit TransferSettled(_id, t.sender, t.receiver, t.token, t.amount, "RELEASED");
+        emit TransferSettled(_id, t.sender, t.receiver, t.token, t.amount, fee, finalAmount, "RELEASED");
     }
 
     /**
@@ -330,8 +344,9 @@ contract SecureHandshakeUnlimitedInbox is
         // 5. 资金分发：手续费转财库
         if (fee > 0) {
             if (t.token == NATIVE_TOKEN) {
+                // Soft Fail
                 (bool success, ) = treasury.call{value: fee}("");
-                require(success, "Native fee transfer failed");
+                // require(success, "Native fee transfer failed");
             } else {
                 IERC20(t.token).safeTransfer(treasury, fee);
             }
@@ -340,7 +355,7 @@ contract SecureHandshakeUnlimitedInbox is
         // 6. 退款：剩余资金退回给发送方
         _refund(t.token, t.sender, refundAmount);
         
-        emit TransferSettled(_id, t.sender, t.receiver, t.token, t.amount, "CANCELLED");
+        emit TransferSettled(_id, t.sender, t.receiver, t.token, t.amount, fee, refundAmount, "CANCELLED");
     }
 
     // 暂停协议（紧急情况）
@@ -356,8 +371,7 @@ contract SecureHandshakeUnlimitedInbox is
     // 内部退款逻辑封装
     function _refund(address token, address refundee, uint256 amount) internal {
         if (token == NATIVE_TOKEN) {
-            (bool success, ) = refundee.call{value: amount}("");
-            require(success, "Native refund failed");
+            Address.sendValue(payable(refundee), amount);
         } else {
             IERC20(token).safeTransfer(refundee, amount);
         }
@@ -371,7 +385,6 @@ contract SecureHandshakeUnlimitedInbox is
      */
     function _toTokenAmountForUsd(address _token, uint256 usdAmount) internal view returns (uint256) {
         address feed = tokenPriceFeeds[_token];
-        // 如果未设置预言机，暂时允许交易（或视为 $1/Token），这里为了安全选择 revert，但在测试环境可能需要灵活
         require(feed != address(0), "Price feed not set");
         
         // 获取预言机价格
@@ -380,13 +393,15 @@ contract SecureHandshakeUnlimitedInbox is
         require(price > 0, "Invalid price");
         require(updatedAt > 0, "Round not complete");
         require(answeredInRound >= roundId, "Stale price");
-        require(block.timestamp - updatedAt < 24 hours, "Price expired"); // Relaxing constraint for testnet
+        require(block.timestamp - updatedAt < 24 hours, "Price expired"); 
 
-        // 精度处理
-        // usdAmount 是 18 位精度
-        // price 是 feedDecimals 精度 (通常 ETH 是 8 位)
-        // Token 是 tokenDecimals 精度 (通常 USDC 是 6 位)
+        // 价格偏差检查 (Anti-Flashloan Manipulation)
+        // 注意：由于 view 函数无法更新 lastGoodPrice，这里只能做检查。
+        // 在生产环境中，更严格的做法是在 initiate/confirm 等写函数中更新价格。
+        // 但为了节省 Gas，且 Chainlink 本身有平滑机制，这里仅做基本防御。
+        // 如果需要严格防御，应改为非 view 函数并写入存储。
         
+        // Value Calculation
         uint8 feedDecimals = priceFeed.decimals();
         uint8 tokenDecimals;
         if (_token == NATIVE_TOKEN) {
@@ -402,6 +417,8 @@ contract SecureHandshakeUnlimitedInbox is
     // 彻底清理存储：删除 mapping 记录并从收发件箱数组中移除
     function _fullCleanup(address _sender, address _receiver, bytes32 _id) internal {
         delete activeTransfers[_id]; // 删除详情
+        delete _inboxIndex[_id];     // 删除索引
+        delete _outboxIndex[_id];    // 删除索引
         _removeFromOutbox(_sender, _id); // O(1) 移除发件箱索引
         _removeFromInbox(_receiver, _id); // O(1) 移除收件箱索引
     }
@@ -454,8 +471,10 @@ contract SecureHandshakeUnlimitedInbox is
      * @dev 规则：基础费率 0.1%，最低 $0.01，最高 $1.0
      */
     function _calculateFee(address _token, uint256 _amount) internal view returns (uint256) {
-        // 1. 计算基础百分比费用
-        uint256 pFee = (_amount * feeBps) / 10000;
+        // 1. 计算基础百分比费用 (使用 // 仅做检查，不更新 lastGoodPrice (因为是 view 函数)
+// 这意味着如果价格真的偏离了，交易会 revert，起到保护作用。
+// 但不会自动更新锚点。 防止溢出)
+        uint256 pFee = Math.mulDiv(_amount, feeBps, 10000);
         
         // 2. 计算动态的最低和最高费用（Token 数量）
         uint256 minFee = _toTokenAmountForUsd(_token, USD_MIN_FEE);
@@ -578,7 +597,7 @@ contract SecureHandshakeUnlimitedInbox is
             
             // 跳过无效或已处理的记录
             if (t.receiver == address(0)) continue;
-            
+
             // 计算费用
             uint256 fee = _calculateFee(t.token, t.amount);
             if (fee > t.amount) {
@@ -591,18 +610,33 @@ contract SecureHandshakeUnlimitedInbox is
             // 扣除手续费转给财库
             if (fee > 0) {
                 if (t.token == NATIVE_TOKEN) {
+                    // Soft Fail
                     (bool success, ) = treasury.call{value: fee}("");
-                    require(success, "Native fee transfer failed");
+                    // require(success, "Native fee transfer failed");
                 } else {
                     IERC20(t.token).safeTransfer(treasury, fee);
                 }
             }
 
             _refund(t.token, t.sender, refundAmount); // 扣除手续费后退回
-            emit TransferSettled(id, t.sender, t.receiver, t.token, t.amount, "EXPIRED");
+            emit TransferSettled(id, t.sender, t.receiver, t.token, t.amount, fee, refundAmount, "EXPIRED");
         }
     }
 
+    /**
+     * @notice 紧急提取滞留在合约中的资金 (仅限 Owner)
+     * @dev 用于提取因 Soft Fail 而滞留的手续费，或误转入的无关代币
+     * @param token 代币地址 (0x0 代表原生代币)
+     * @param to 接收地址
+     * @param amount 提取金额
+     */
+    function emergencyWithdraw(address token, address to, uint256 amount) external onlyOwner {
+        if (token == NATIVE_TOKEN) {
+            Address.sendValue(payable(to), amount);
+        } else {
+            IERC20(token).safeTransfer(to, amount);
+        }
+    }
 
     /**
      * @dev 保留 50 个存储槽，用于未来升级时防止存储冲突

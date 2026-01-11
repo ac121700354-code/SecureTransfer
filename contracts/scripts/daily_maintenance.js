@@ -1,122 +1,130 @@
-const { ethers } = require("hardhat");
+const { ethers, network } = require("hardhat");
 const cron = require("node-cron");
-const deployment = require("../deployment.json");
+const { getDeployedAddress } = require("./utils");
 require("dotenv").config();
 
 // Configuration
-const PRIVATE_KEY = process.env.PRIVATE_KEY; // Ensure this is set in .env
-const RPC_URL = process.env.RPC_URL || "https://bsc-testnet.publicnode.com";
+// Mainnet: 7 days (604800s), Testnet: 5 mins (300s) for testing
+const EXPIRE_DURATION = network.name === "bnb_mainnet" ? 604800 : 300; 
 
 async function main() {
-    console.log("Starting Daily Maintenance Script...");
-
-    // Connect to provider and signer
-    const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
-    console.log(`Connected with wallet: ${wallet.address}`);
+    console.log(`\n=== Starting Maintenance Script [${new Date().toISOString()}] ===`);
+    console.log(`Network: ${network.name}`);
+    
+    const [maintainer] = await ethers.getSigners();
+    console.log(`Maintainer: ${maintainer.address}`);
 
     // Load Contracts
-    const escrowAddress = deployment.contracts.EscrowProxy;
-    const feeCollectorAddress = deployment.contracts.FeeCollector;
+    const escrowAddress = getDeployedAddress("EscrowProxy");
+    const feeCollectorAddress = getDeployedAddress("FeeCollector");
 
-    // We need ABIs. For simplicity, we can use the artifacts if running within Hardhat context,
-    // or minimal interfaces. Here we rely on Hardhat's artifacts.
     const Escrow = await ethers.getContractFactory("SecureHandshakeUnlimitedInbox");
-    const escrow = Escrow.attach(escrowAddress).connect(wallet);
+    const escrow = Escrow.attach(escrowAddress).connect(maintainer);
 
     const FeeCollector = await ethers.getContractFactory("FeeCollector");
-    const feeCollector = FeeCollector.attach(feeCollectorAddress).connect(wallet);
+    const feeCollector = FeeCollector.attach(feeCollectorAddress).connect(maintainer);
 
-    // --- Task 1: Execute Expired Refunds ---
-    console.log("\n--- Task 1: Checking for Expired Refunds ---");
-    // Note: The contract doesn't have a "getAllExpired" function. 
-    // In a real production scenario, we should have an off-chain indexer (The Graph) to find expired IDs.
-    // For this script, we will iterate through a known list or events. 
-    // Since we don't have an indexer here, we will demonstrate how to check specific IDs if we knew them,
-    // OR we can fetch recent `TransferInitiated` events and check their status.
+    // --- Task 1: Clean Expired Transfers ---
+    console.log("\n--- Task 1: Checking for Expired Transfers ---");
     
-    // Fetch events from the last 7 days (default TTL) + buffer
-    const currentBlock = await provider.getBlockNumber();
-    const fromBlock = currentBlock - 201600; // Approx 7 days (201600 blocks on BSC @ 3s/block)
+    // Scan events from last 14 days to catch any lingering orders
+    const currentBlock = await ethers.provider.getBlockNumber();
+    const blocksPerDay = 28800; // BSC: ~3s block time
+    const lookbackBlocks = blocksPerDay * 14; 
+    const fromBlock = Math.max(0, currentBlock - lookbackBlocks);
     
-    console.log(`Scanning events from block ${fromBlock} to ${currentBlock}...`);
+    console.log(`Scanning blocks: ${fromBlock} -> ${currentBlock}`);
     
     const filter = escrow.filters.TransferInitiated();
     const events = await escrow.queryFilter(filter, fromBlock, currentBlock);
     
-    let expiredCount = 0;
-    
+    console.log(`Found ${events.length} transfer events in range.`);
+
+    const expiredIds = [];
+    const now = Math.floor(Date.now() / 1000);
+
     for (const event of events) {
         const id = event.args[0];
         try {
             const record = await escrow.activeTransfers(id);
-            // Check if record exists (receiver != 0) and is expired
+            
+            // Check if record is still active (receiver != 0)
             if (record.receiver !== ethers.ZeroAddress) {
-                const now = Math.floor(Date.now() / 1000);
-                if (record.expiresAt < now) {
-                    console.log(`Found expired order: ${id}`);
-                    console.log(`- ExpiresAt: ${record.expiresAt}, Now: ${now}`);
-                    
-                    // Execute expire()
-                    const tx = await escrow.expire(id);
-                    console.log(`- Triggered expire tx: ${tx.hash}`);
-                    await tx.wait();
-                    console.log(`- Successfully expired and refunded.`);
-                    expiredCount++;
+                const createdAt = Number(record.createdAt);
+                
+                // Check expiration
+                if (now > createdAt + EXPIRE_DURATION) {
+                    console.log(`Found Expired: ${id}`);
+                    console.log(`- Created: ${new Date(createdAt * 1000).toISOString()}`);
+                    console.log(`- Age: ${((now - createdAt) / 3600).toFixed(1)} hours`);
+                    expiredIds.push(id);
                 }
             }
         } catch (err) {
-            console.error(`Error processing ID ${id}:`, err.message);
+            console.error(`Error checking ID ${id}:`, err.message);
         }
     }
-    
-    if (expiredCount === 0) {
+
+    if (expiredIds.length > 0) {
+        console.log(`\nExecuting Batch Expiration for ${expiredIds.length} orders...`);
+        try {
+            // Batch process (max 20 per tx to be safe with gas)
+            const BATCH_SIZE = 20;
+            for (let i = 0; i < expiredIds.length; i += BATCH_SIZE) {
+                const batch = expiredIds.slice(i, i + BATCH_SIZE);
+                console.log(`Processing batch ${i/BATCH_SIZE + 1}...`);
+                
+                const tx = await escrow.forceExpireBatch(batch);
+                console.log(`- Tx Sent: ${tx.hash}`);
+                await tx.wait();
+                console.log(`- Batch Confirmed!`);
+            }
+        } catch (err) {
+            console.error("Batch expiration failed:", err.message);
+        }
+    } else {
         console.log("No expired orders found.");
     }
 
     // --- Task 2: Buyback and Burn ---
     console.log("\n--- Task 2: Executing Buyback ---");
-    // Check if buyback is triggerable
-    // Tokens to check: [USDT, USDC] (Add real addresses for production)
-    // For Testnet, we might only have Mock tokens or BNB.
-    // Let's check Native (BNB) first.
     
-    const tokensToCheck = []; // Add ERC20 addresses here if needed
+    const tokensToCheck = []; // Add specific tokens if needed (e.g. USDT)
     const includeNative = true;
 
     try {
         const [totalUsd, isTriggerable] = await feeCollector.checkUpside(tokensToCheck, includeNative);
-        console.log(`FeeCollector Stats:`);
-        console.log(`- Total Value: $${ethers.formatUnits(totalUsd, 18)}`);
-        console.log(`- Threshold Met: ${isTriggerable}`);
+        console.log(`FeeCollector Value: $${ethers.formatUnits(totalUsd, 18)}`);
 
         if (isTriggerable) {
-            console.log("Threshold met! Executing BuybackAndBurn...");
-            // Min STP out amounts (slippage protection). For now set to 0 for simplicity.
-            const minStpOuts = tokensToCheck.map(() => 0); 
-            
-            const tx = await feeCollector.executeBuybackAndBurn(tokensToCheck, minStpOuts, includeNative);
-            console.log(`- Buyback tx sent: ${tx.hash}`);
+            console.log("Threshold met! Executing Buyback...");
+            const tx = await feeCollector.executeBuybackAndBurn(
+                tokensToCheck, 
+                [], // minOuts
+                0,  // minFromNative
+                includeNative
+            );
+            console.log(`- Buyback Tx: ${tx.hash}`);
             await tx.wait();
-            console.log("- Buyback executed successfully!");
+            console.log("- Success!");
         } else {
-            console.log("Threshold not met. Skipping buyback.");
+            console.log("Threshold not met.");
         }
     } catch (err) {
-        console.error("Error during buyback check:", err.message);
+        console.error("Buyback check failed:", err.message);
     }
 
-    console.log("\nDaily Maintenance Completed.");
+    console.log("\n=== Maintenance Completed ===");
 }
 
-// Schedule the task
-// Cron syntax: "0 0 * * *" = At 00:00 every day
-console.log("Scheduler started. Waiting for 00:00 daily trigger...");
-cron.schedule("0 0 * * *", () => {
+// Check if run directly or imported
+if (require.main === module) {
+    // If run directly: "npx hardhat run scripts/daily_maintenance.js"
     main().catch((error) => {
-        console.error("Script execution failed:", error);
+        console.error(error);
+        process.exitCode = 1;
     });
-});
-
-// For immediate testing (uncomment to run once immediately)
-// main();
+} else {
+    // If imported by scheduler/server
+    module.exports = main;
+}
