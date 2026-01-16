@@ -81,7 +81,7 @@ contract ActivityRewards is Ownable, ReentrancyGuard {
     }
 
     // Removed _timestampFeed from constructor
-    constructor(address _token, address _escrow) Ownable(msg.sender) {
+    constructor(address _token, address _escrow, address _unusedFeed) Ownable(msg.sender) {
         require(_token != address(0), "Token zero");
         require(_escrow != address(0), "Escrow zero");
         require(IERC20Metadata(_token).decimals() <= 18, "Unsupported decimals"); // 精度检查

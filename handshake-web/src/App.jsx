@@ -577,8 +577,8 @@ function AppContent() {
             <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center h-auto md:h-20 px-6 py-4 md:py-0 gap-4 md:gap-0">
               <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
                 <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 overflow-hidden">
-                      <img src="/tokens/bfr-logo.svg?v=12" alt="Logo" className="w-full h-full object-cover" />
+                    <div className="w-10 h-10 flex items-center justify-center">
+                      <img src="/logo.svg" alt="Logo" className="w-full h-full object-contain" />
                     </div>
                     <div>
                       <h1 className="text-xl font-bold text-white tracking-tight">{t.appTitle}</h1>

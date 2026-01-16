@@ -16,7 +16,17 @@ const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensC
   const safeFormat = (val) => {
     try {
       if (val === null || val === undefined) return "0.00";
-      return ethers.formatUnits(val, 18);
+      // 格式化为18位小数的字符串
+      const formatted = ethers.formatUnits(val, 18);
+      // 截取逻辑：
+      // 1. 查找小数点
+      const dotIndex = formatted.indexOf('.');
+      if (dotIndex === -1) return formatted; // 没有小数
+      
+      // 2. 截取整数部分 + 小数点 + 最多8位小数
+      // 如果小数位数不足8位，直接返回原值（不补0，保持简洁）
+      // 如果超过8位，直接截断
+      return formatted.slice(0, dotIndex + 9); // +9 因为包括小数点本身
     } catch (e) {
       return "0.00";
     }
@@ -133,7 +143,7 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
     try {
       // Use JsonRpcProvider to view data from the selected network, regardless of wallet state
       const provider = new ethers.JsonRpcProvider(activeConfig.rpcUrl);
-      const contract = new ethers.Contract(contracts.EscrowProxy.address, contracts.EscrowProxy.abi, provider);
+      const contract = new ethers.Contract(contracts.SecureHandshakeUnlimitedInbox.address, contracts.SecureHandshakeUnlimitedInbox.abi, provider);
 
       // 1. 获取 IDs
       const [inIds, outIds] = await Promise.all([
@@ -178,11 +188,15 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
         fetchDetails(outIds)
       ]);
 
+      // 安全更新：只有在成功获取数据后才更新状态
+      // 如果出错，上面的 Promise.all 会抛出异常，进入 catch 块，从而保留旧数据
       setInbox(inRecs);
       setOutbox(outRecs);
       if (onStatsUpdate) onStatsUpdate(outRecs.length);
     } catch (err) {
       console.error("Fetch error:", err);
+      // 可选：在这里可以弹出一个 Toast 提示用户“网络错误，显示的是缓存数据”
+      // 但绝对不要 setInbox([])
     } finally {
       setIsInitialLoading(false);
     }
@@ -192,7 +206,9 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
   // 强制显示 Loading
   useEffect(() => {
     if (account && contracts) {
-       // 无论列表是否为空，只要账户或合约变化，就视为初始化加载，清空并显示 Loading
+       // 注意：如果想在账户切换时先清空数据（避免看到别人的数据），这里可以保留清空。
+       // 但如果是为了防止“网络错误导致清空”，我们只应该在 fetchOrders 内部保护。
+       // 这里为了用户体验（不看别人数据），切换账户时必须清空。
        setInbox([]);
        setOutbox([]);
        setIsInitialLoading(true);
@@ -213,9 +229,7 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
         });
     } else {
         // 数字信号：静默拉取
-        // 注意：如果是网络切换导致的刷新（refreshTrigger 变化且 inbox/outbox 可能为空），
-        // 也可以选择在这里设置 loading，但为了体验平滑，我们保持静默更新，
-        // 除非列表为空（上面的 useEffect 会处理）
+        // 这里不需要清空数据，直接 fetch，如果失败，fetchOrders 内部的 catch 会捕获，不会覆盖现有数据
         if (contracts) {
           fetchOrders(); 
         }
@@ -224,8 +238,7 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
 
   // 监听 activeConfig 变化（网络切换），强制显示 Loading
   useEffect(() => {
-    // 即使 activeConfig 暂时为空（例如不支持的网络），也应该清空数据
-    // 只要 activeConfig 发生变化，就意味着环境变了，旧数据必须清除
+    // 网络切换时，旧数据肯定是错的（不同链），所以必须清空
     setInbox([]);
     setOutbox([]);
     
@@ -274,7 +287,7 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
       }
 
       const signer = await provider.getSigner();
-      const contract = new ethers.Contract(contracts.EscrowProxy.address, contracts.EscrowProxy.abi, signer);
+      const contract = new ethers.Contract(contracts.SecureHandshakeUnlimitedInbox.address, contracts.SecureHandshakeUnlimitedInbox.abi, signer);
       
       const currentSigner = await signer.getAddress();
       console.log(`Action: ${method} by ${currentSigner}`);

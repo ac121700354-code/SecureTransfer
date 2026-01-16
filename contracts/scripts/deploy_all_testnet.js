@@ -13,6 +13,7 @@ async function main() {
   const PANCAKE_ROUTER = "0xD99D1c33F9fC3444f8101754aBC46c52416550D1";
   const CHAINLINK_BNB_USD = "0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526";
   const DAO_TREASURY = deployer.address; // Use deployer as treasury for testnet
+  const STAKING_TREASURY = deployer.address; // Use deployer as staking treasury for testnet
 
   const deployedContracts = {};
 
@@ -28,7 +29,7 @@ async function main() {
 
     // 2. Deploy BufferToken
     console.log("\n2. Deploying BufferToken...");
-    const initialSupply = ethers.parseEther("100000000"); // 100M
+    const initialSupply = ethers.parseEther("1000000000"); // 1 Billion
     const BufferToken = await ethers.getContractFactory("BufferToken");
     const token = await BufferToken.deploy(deployer.address, deployedContracts.timelock, initialSupply);
     await token.waitForDeployment();
@@ -42,7 +43,8 @@ async function main() {
       deployedContracts.token,
       PANCAKE_ROUTER,
       WBNB_ADDRESS,
-      DAO_TREASURY
+      DAO_TREASURY,
+      STAKING_TREASURY
     );
     await feeCollector.waitForDeployment();
     deployedContracts.feeCollector = await feeCollector.getAddress();
@@ -67,7 +69,7 @@ async function main() {
       deployedContracts.token, 
       deployedContracts.escrow,
       CHAINLINK_BNB_USD // Use price feed as timestamp source proxy if needed, or check if this feed supports roundId timestamp
-    ); 
+    );
     // Note: ActivityRewards expects an AggregatorV3Interface to get timestamp.
     // Price feeds return timestamp in latestRoundData, so it works.
     await rewards.waitForDeployment();

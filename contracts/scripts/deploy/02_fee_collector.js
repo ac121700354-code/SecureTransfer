@@ -23,7 +23,8 @@ async function main() {
         bufferToken,
         router,
         weth,
-        treasury
+        treasury,
+        ethers.ZeroAddress // stakingTreasury (set later)
     );
     await collector.waitForDeployment();
 

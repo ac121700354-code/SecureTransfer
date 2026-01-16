@@ -8,8 +8,8 @@ async function main() {
     const timelockAddress = getDeployedAddress("Timelock");
     const isTestnet = network.name !== "bnb_mainnet" && network.name !== "ethereum";
     
-    // Testnet: 10M, Mainnet: 100M
-    const supply = ethers.parseUnits(isTestnet ? "10000000" : "100000000", 18);
+    // Testnet: 10M, Mainnet: 1B
+    const supply = ethers.parseUnits(isTestnet ? "10000000" : "1000000000", 18);
 
     const BufferToken = await ethers.getContractFactory("BufferToken");
     const token = await BufferToken.deploy(

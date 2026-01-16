@@ -48,9 +48,11 @@ const TokenBar = ({ label, percent, colorClass, width }) => (
   </div>
 );
 
-export const WhitepaperContentZh = () => (
-  <div className="space-y-12 text-slate-300 font-sans">
-    <div className="text-center border-b border-white/10 pb-10">
+export const WhitepaperContentZh = () => {
+  const tokenSymbol = "HK";
+
+  return (
+    <div className="space-y-12 text-slate-300 font-sans">    <div className="text-center border-b border-white/10 pb-10">
       <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">Handshk 协议白皮书</h1>
       <p className="text-blue-400 font-medium text-lg tracking-wide opacity-90">安全 · 可信 · 可撤回</p>
       <p className="text-slate-500 text-sm mt-2">下一代去中心化转账标准</p>
@@ -142,37 +144,45 @@ export const WhitepaperContentZh = () => (
     <section>
       <SectionTitle number="05" title="经济模型" />
       
-      <h4 className="font-bold text-white mt-4 mb-2">4.1 协议服务费</h4>
+      <h4 className="font-bold text-white mt-4 mb-2">协议服务费</h4>
       <p className="mb-4">协议将对每笔成功完成的安全转账收取微量服务费：0.1%（最低 $0.01 封顶 $1.0），结算时扣除，用于：</p>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 max-w-3xl mx-auto">
-        {/* 90% Burn */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 max-w-4xl mx-auto">
+        {/* 50% Burn */}
         <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-white/5 text-center relative overflow-hidden group shadow-xl shadow-emerald-500/5 hover:border-emerald-500/20 transition-all">
           <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
-          <div className="text-4xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">90%</div>
+          <div className="text-4xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">50%</div>
           <div className="text-xs text-emerald-400 uppercase tracking-widest font-bold mb-2">回购销毁</div>
-          <p className="text-xs text-slate-400 leading-relaxed">大部分协议收入用于在二级市场回购 HSK 并销毁，实现持续通缩，提升代币价值。</p>
+          <p className="text-xs text-slate-400 leading-relaxed">协议收入的一半用于回购并销毁 {tokenSymbol}，实现通缩。</p>
         </div>
 
-        {/* 10% DAO */}
+        {/* 30% Staking */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-white/5 text-center relative overflow-hidden group shadow-xl shadow-purple-500/5 hover:border-purple-500/20 transition-all">
+          <div className="absolute top-0 left-0 w-full h-1 bg-purple-500"></div>
+          <div className="text-4xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">30%</div>
+          <div className="text-xs text-purple-400 uppercase tracking-widest font-bold mb-2">质押与激励</div>
+          <p className="text-xs text-slate-400 leading-relaxed">用于奖励质押者及社区活跃用户（如交易挖矿）。</p>
+        </div>
+
+        {/* 20% DAO */}
         <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-white/5 text-center relative overflow-hidden group shadow-xl shadow-blue-500/5 hover:border-blue-500/20 transition-all">
           <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
-          <div className="text-4xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">10%</div>
-          <div className="text-xs text-blue-400 uppercase tracking-widest font-bold mb-2">生态建设</div>
-          <p className="text-xs text-slate-400 leading-relaxed">用于支持社区治理提案、长期生态激励及项目可持续发展。</p>
+          <div className="text-4xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">20%</div>
+          <div className="text-xs text-blue-400 uppercase tracking-widest font-bold mb-2">DAO 国库</div>
+          <p className="text-xs text-slate-400 leading-relaxed">用于长期生态建设、开发维护及治理提案支持。</p>
         </div>
       </div>
 
       <div className="bg-slate-900/50 rounded-2xl p-6 border border-white/5">
         <div className="flex justify-between items-end mb-6">
-            <h4 className="font-bold text-white">代币分配 (HSK)</h4>
-            <span className="text-xs text-slate-500 font-mono">代币总量：100,000,000 (1亿)</span>
+            <h4 className="font-bold text-white">代币分配 ({tokenSymbol})</h4>
+            <span className="text-xs text-slate-500 font-mono">代币总量：1,000,000,000 (10亿)</span>
         </div>
         <div className="space-y-5">
-            <TokenBar label="社区空投与激励" percent="45%" width="45%" colorClass="bg-gradient-to-r from-blue-600 to-blue-400" />
-            <TokenBar label="生态与DAO国库" percent="30%" width="30%" colorClass="bg-gradient-to-r from-purple-600 to-purple-400" />
+            <TokenBar label="社区空投与激励" percent="50%" width="50%" colorClass="bg-gradient-to-r from-blue-600 to-blue-400" />
+            <TokenBar label="生态建设" percent="20%" width="20%" colorClass="bg-gradient-to-r from-purple-600 to-purple-400" />
             <TokenBar label="核心团队 (锁仓)" percent="15%" width="15%" colorClass="bg-gradient-to-r from-emerald-600 to-emerald-400" />
-            <TokenBar label="投资机构 (锁仓)" percent="10%" width="10%" colorClass="bg-gradient-to-r from-amber-600 to-amber-400" />
+            <TokenBar label="投资顾问 (锁仓)" percent="15%" width="15%" colorClass="bg-gradient-to-r from-amber-600 to-amber-400" />
         </div>
       </div>
     </section>
@@ -181,10 +191,10 @@ export const WhitepaperContentZh = () => (
       <SectionTitle number="06" title="路线图" />
       <div className="relative ml-3 pl-8 py-2 space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-gradient-to-b before:from-blue-500 before:via-slate-700 before:to-slate-800">
         {[
-            { time: "Q1 2026", title: "起步", desc: "发布白皮书，上线测试网，启动社区空投活动。", active: true },
-            { time: "Q2 2026", title: "主网", desc: "主网上线（支持ETH, BNB），HSK开启交易。", active: false },
-            { time: "Q3 2026", title: "生态", desc: "推出多签安全账户功能，发布移动端App。", active: false },
-            { time: "Q4 2026", title: "治理", desc: "启动DAO治理，通过社区投票调整协议参数。", active: false }
+            { time: "Q1 2025", title: "起步", desc: "BSC 主网公测启动，开启“早期贡献者”积分激励活动。", active: true },
+            { time: "Q2 2025", title: "拓展", desc: "支持主流资产交易，拓展至 Ethereum 与 Base 等 Layer 2 网络。", active: false },
+            { time: "Q3 2025", title: "赋能", desc: "启动 TGE (代币生成)，上线手续费回购销毁与 HK 质押挖矿。", active: false },
+            { time: "Q4 2025", title: "生态", desc: "开启 DAO 治理，推进 CEX/钱包深度集成，发布移动端 App。", active: false }
         ].map((item, i) => (
             <div key={i} className="relative group">
                 <div className={`absolute -left-[39px] w-6 h-6 rounded-full border-4 border-slate-900 ${item.active ? 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'bg-slate-700'} transition-colors`}></div>
@@ -197,11 +207,27 @@ export const WhitepaperContentZh = () => (
         ))}
       </div>
     </section>
-  </div>
-);
 
-export const WhitepaperContentEn = () => (
-  <div className="space-y-12 text-slate-300 font-sans">
+    <section className="bg-gradient-to-br from-blue-900/20 to-slate-900/20 rounded-3xl p-8 border border-blue-500/10 text-center">
+      <SectionTitle number="07" title="愿景与结语" />
+      <div className="max-w-2xl mx-auto">
+        <p className="text-slate-300 leading-relaxed mb-6">
+          Handshk 协议的终极目标是建立区块链转账的安全新标准。我们诚挚呼吁全球各大中心化交易所 (CEX)、去中心化钱包及支付网关接入 Handshk 协议，共同为用户资产筑起一道不可逾越的安全防线，让“可撤回转账”成为 Web3 世界的标配。
+        </p>
+        <p className="text-slate-400 text-sm">
+          同时，我们热切欢迎更多开发者、投资机构及社区伙伴加入 Handshk 生态。让我们携手并进，消除链上交互的恐惧与门槛，共同构建一个更加安全、包容、繁荣的 Web3 未来。
+        </p>
+      </div>
+    </section>
+  </div>
+  );
+};
+
+export const WhitepaperContentEn = () => {
+  const tokenSymbol = "HK";
+
+  return (
+    <div className="space-y-12 text-slate-300 font-sans">
     <div className="text-center border-b border-white/10 pb-10">
       <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">Handshk Protocol Whitepaper</h1>
       <p className="text-blue-400 font-medium text-lg tracking-wide opacity-90">Secure · Trusted · Reversible</p>
@@ -297,34 +323,42 @@ export const WhitepaperContentEn = () => (
       <h4 className="font-bold text-white mt-4 mb-2">4.1 Protocol Fees</h4>
       <p className="mb-4">The protocol charges a small fee on every successful secured transfer: 0.1% (Min $0.01, Max $1.0), deducted at settlement, used for:</p>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 max-w-3xl mx-auto">
-        {/* 90% Burn */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 max-w-4xl mx-auto">
+        {/* 50% Burn */}
         <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-white/5 text-center relative overflow-hidden group shadow-xl shadow-emerald-500/5 hover:border-emerald-500/20 transition-all">
           <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
-          <div className="text-4xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">90%</div>
+          <div className="text-4xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">50%</div>
           <div className="text-xs text-emerald-400 uppercase tracking-widest font-bold mb-2">Buyback & Burn</div>
-          <p className="text-xs text-slate-400 leading-relaxed">The majority of protocol revenue is used to buy back HSK tokens from the secondary market and burn them, achieving continuous deflation.</p>
+          <p className="text-xs text-slate-400 leading-relaxed">Half of protocol revenue buys back HSK from the market and burns it.</p>
         </div>
 
-        {/* 10% DAO */}
+        {/* 30% Staking */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-white/5 text-center relative overflow-hidden group shadow-xl shadow-purple-500/5 hover:border-purple-500/20 transition-all">
+          <div className="absolute top-0 left-0 w-full h-1 bg-purple-500"></div>
+          <div className="text-4xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">30%</div>
+          <div className="text-xs text-purple-400 uppercase tracking-widest font-bold mb-2">Staking & Rewards</div>
+          <p className="text-xs text-slate-400 leading-relaxed">Used to reward stakers and active community members (e.g. Trade Mining).</p>
+        </div>
+
+        {/* 20% DAO */}
         <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-white/5 text-center relative overflow-hidden group shadow-xl shadow-blue-500/5 hover:border-blue-500/20 transition-all">
           <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
-          <div className="text-4xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">10%</div>
+          <div className="text-4xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-500">20%</div>
           <div className="text-xs text-blue-400 uppercase tracking-widest font-bold mb-2">DAO Treasury</div>
-          <p className="text-xs text-slate-400 leading-relaxed">Allocated to the DAO Treasury wallet to support community governance proposals, long-term incentives, and sustainable development.</p>
+          <p className="text-xs text-slate-400 leading-relaxed">Allocated for long-term ecosystem growth, development, and governance.</p>
         </div>
       </div>
 
       <div className="bg-slate-900/50 rounded-2xl p-6 border border-white/5">
         <div className="flex justify-between items-end mb-6">
-            <h4 className="font-bold text-white">Token Distribution (HSK)</h4>
-            <span className="text-xs text-slate-500 font-mono">Total Supply: 100,000,000</span>
+            <h4 className="font-bold text-white">Token Distribution ({tokenSymbol})</h4>
+            <span className="text-xs text-slate-500 font-mono">Total Supply: 1,000,000,000</span>
         </div>
         <div className="space-y-5">
-            <TokenBar label="Community & Airdrop" percent="45%" width="45%" colorClass="bg-gradient-to-r from-blue-600 to-blue-400" />
-            <TokenBar label="Ecosystem & Treasury" percent="30%" width="30%" colorClass="bg-gradient-to-r from-purple-600 to-purple-400" />
+            <TokenBar label="Community & Airdrop" percent="50%" width="50%" colorClass="bg-gradient-to-r from-blue-600 to-blue-400" />
+            <TokenBar label="Ecosystem Fund" percent="20%" width="20%" colorClass="bg-gradient-to-r from-purple-600 to-purple-400" />
             <TokenBar label="Team (Locked)" percent="15%" width="15%" colorClass="bg-gradient-to-r from-emerald-600 to-emerald-400" />
-            <TokenBar label="Investors (Locked)" percent="10%" width="10%" colorClass="bg-gradient-to-r from-amber-600 to-amber-400" />
+            <TokenBar label="Investors & Advisors (Locked)" percent="15%" width="15%" colorClass="bg-gradient-to-r from-amber-600 to-amber-400" />
         </div>
       </div>
     </section>
@@ -333,10 +367,10 @@ export const WhitepaperContentEn = () => (
       <SectionTitle number="06" title="Roadmap" />
       <div className="relative ml-3 pl-8 py-2 space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-gradient-to-b before:from-blue-500 before:via-slate-700 before:to-slate-800">
         {[
-            { time: "Q1 2026", title: "Inception", desc: "Whitepaper Release, Testnet Launch, Community Airdrop.", active: true },
-            { time: "Q2 2026", title: "Mainnet", desc: "Mainnet Launch (ETH, BNB), Trade Mining.", active: false },
-            { time: "Q3 2026", title: "Ecosystem", desc: "Multi-sig Secure Accounts, Mobile App Release.", active: false },
-            { time: "Q4 2026", title: "Governance", desc: "DAO Governance Launch, Community Voting.", active: false }
+            { time: "Q1 2026", title: "Genesis", desc: "BSC Mainnet Beta Launch, \"Early Contributor\" Points Campaign.", active: true },
+            { time: "Q2 2026", title: "Expansion", desc: "Support Major Assets, Deploy to Ethereum & Base Layer 2.", active: false },
+            { time: "Q3 2026", title: "Utility", desc: "Token Generation Event (TGE), Launch Buyback & Staking.", active: false },
+            { time: "Q4 2026", title: "Ecosystem", desc: "DAO Governance, CEX & Wallet Integrations, Mobile App Release.", active: false }
         ].map((item, i) => (
             <div key={i} className="relative group">
                 <div className={`absolute -left-[39px] w-6 h-6 rounded-full border-4 border-slate-900 ${item.active ? 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'bg-slate-700'} transition-colors`}></div>
@@ -349,5 +383,18 @@ export const WhitepaperContentEn = () => (
         ))}
       </div>
     </section>
+
+    <section className="bg-gradient-to-br from-blue-900/20 to-slate-900/20 rounded-3xl p-8 border border-blue-500/10 text-center">
+      <SectionTitle number="07" title="Vision & Conclusion" />
+      <div className="max-w-2xl mx-auto">
+        <p className="text-slate-300 leading-relaxed mb-6">
+          The ultimate goal of the Handshk Protocol is to establish a new security standard for blockchain transfers. We sincerely call upon major centralized exchanges (CEX), decentralized wallets, and payment gateways worldwide to integrate the Handshk Protocol, jointly building an insurmountable security line of defense for user assets, making "reversible transfers" a standard in the Web3 world.
+        </p>
+        <p className="text-slate-400 text-sm">
+          At the same time, we eagerly welcome more developers, investment institutions, and community partners to join the Handshk ecosystem. Let us work together to eliminate the fear and barriers of on-chain interaction, jointly building a safer, more inclusive, and prosperous Web3 future.
+        </p>
+      </div>
+    </section>
   </div>
-);
+  );
+};

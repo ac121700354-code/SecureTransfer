@@ -19,6 +19,44 @@
       "comment": "Sepolia USDT Feed (Example)"
     }
   ],
+  "56": [
+    {
+      "symbol": "BNB",
+      "address": "0x0000000000000000000000000000000000000000",
+      "feed": "0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE",
+      "comment": "BSC Mainnet BNB/USD Feed"
+    },
+    {
+      "symbol": "BTC",
+      "address": "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c",
+      "feed": "0x264990fbd0A4796A3E3d8E37C4d5F87a3aCa5Ebf",
+      "comment": "BSC Mainnet BTC/USD Feed"
+    },
+    {
+      "symbol": "ETH",
+      "address": "0x2170Ed0880ac9A755fd29B2688956BD959F933F8",
+      "feed": "0x9ef1B8c0E4F7dc8bF36b65e3610cC6214392A6B1",
+      "comment": "BSC Mainnet ETH/USD Feed"
+    },
+    {
+      "symbol": "USDC",
+      "address": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+      "feed": "0x51597f405303C4377E36123cBc172b13269EA163",
+      "comment": "BSC Mainnet USDC/USD Feed"
+    },
+    {
+      "symbol": "DAI",
+      "address": "0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3",
+      "feed": "0x132d3C0B1D2cEa0BC552588063bdBb210FDeecfA",
+      "comment": "BSC Mainnet DAI/USD Feed"
+    },
+    {
+      "symbol": "USDT",
+      "address": "0x55d398326f99059fF775485246999027B3197955",
+      "feed": "0xB97Ad0E74fa7d920791E90258A6E2085088b4320",
+      "comment": "BSC Mainnet USDT/USD Feed"
+    }
+  ],
   "97": [
     {
       "symbol": "BNB",
@@ -55,12 +93,6 @@
       "address": "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd",
       "feed": "0xEca2605f0BCF2BA5966372C99837b1F182d3D620",
       "comment": "BSC Testnet USDT/USD Feed"
-    },
-    {
-      "symbol": "HSK",
-      "address": "0x0000000000000000000000000000000000000000",
-      "feed": "0xEca2605f0BCF2BA5966372C99837b1F182d3D620",
-      "comment": "HSK Token (Update Address after deploy). Using USDT Feed as temporary Mock."
     }
   ]
 }

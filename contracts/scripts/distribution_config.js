@@ -5,13 +5,13 @@ require("dotenv").config(); // Ensure env vars are loaded if this file is import
 module.exports = {
     tokenName: "HK",
     tokenSymbol: "HK",
-    totalSupply: "100000000", // 100 Million
+    totalSupply: "1000000000", // 1 Billion
 
     distribution: {
-        // 45% - Community Mining & Airdrop
+        // 50% - Community Mining & Airdrop
         community: {
-            percentage: 45, // Reduced by 1% for ActivityRewards contract funding
-            amount: "45000000",
+            percentage: 50,
+            amount: "500000000",
             address: process.env.COMMUNITY_WALLET || "0x...", 
             description: "Community Mining & Airdrop"
         },
@@ -19,7 +19,7 @@ module.exports = {
         // 20% - Ecosystem Fund
         ecosystem: {
             percentage: 20,
-            amount: "20000000",
+            amount: "200000000",
             address: process.env.ECOSYSTEM_WALLET || "0x...",
             description: "Ecosystem Fund"
         },
@@ -27,25 +27,17 @@ module.exports = {
         // 15% - Core Team (Locked)
         team: {
             percentage: 15,
-            amount: "15000000",
+            amount: "150000000",
             address: process.env.TEAM_WALLET || "0x...",
             description: "Core Team (Locked)"
         },
 
-        // 10% - Investors (Locked)
+        // 15% - Investors & Advisors (Locked)
         investors: {
-            percentage: 10,
-            amount: "10000000",
+            percentage: 15,
+            amount: "150000000",
             address: process.env.INVESTOR_WALLET || "0x...",
-            description: "Investors (Locked)"
-        },
-
-        // 10% - DAO Treasury
-        dao: {
-            percentage: 10,
-            amount: "10000000",
-            address: process.env.DAO_WALLET || "0x...",
-            description: "DAO Treasury"
+            description: "Investors & Advisors (Locked)"
         }
     }
 };

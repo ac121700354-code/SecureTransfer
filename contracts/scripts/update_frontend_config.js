@@ -3,6 +3,16 @@ const path = require('path');
 
 const DEPLOYMENT_PATH = path.join(__dirname, '../deployment-testnet.json');
 const FRONTEND_CONFIG_PATH = path.join(__dirname, '../../handshake-web/src/config.json');
+const ARTIFACTS_DIR = path.join(__dirname, '../artifacts/contracts');
+
+// Mapping: Contract Key in Config -> Artifact Path
+const CONTRACT_MAP = {
+  "BufferToken": "core/BufferToken.sol/BufferToken.json",
+  "FeeCollector": "core/FeeCollector.sol/FeeCollector.json",
+  "SecureHandshakeUnlimitedInbox": "core/Escrow.sol/SecureHandshakeUnlimitedInbox.json",
+  "ActivityRewards": "core/ActivityRewards.sol/ActivityRewards.json",
+  "Timelock": "core/Timelock.sol/Timelock.json"
+};
 
 function main() {
   // 1. 读取最新部署信息
@@ -20,7 +30,7 @@ function main() {
   }
   const config = JSON.parse(fs.readFileSync(FRONTEND_CONFIG_PATH, 'utf8'));
   
-  // 3. 更新地址
+  // 3. 更新地址与ABI
   const chainId = "97"; // BNB Testnet
   if (!config[chainId]) {
     console.error(`Chain ID ${chainId} not found in config`);
@@ -34,34 +44,41 @@ function main() {
     hkToken.address = deployment.token;
   }
 
-  // Update Contracts
-  if (config[chainId].contracts) {
-    if (config[chainId].contracts.BufferToken) {
-      console.log(`Updating BufferToken contract address to ${deployment.token}`);
-      config[chainId].contracts.BufferToken.address = deployment.token;
-    }
-    
-    // Note: Frontend config might use different keys like 'Escrow' or 'SecureHandshakeUnlimitedInbox'
-    // Let's check keys. Based on file read, it seems keys are Contract Names.
-    
-    if (config[chainId].contracts.SecureHandshakeUnlimitedInbox) {
-      console.log(`Updating SecureHandshakeUnlimitedInbox address to ${deployment.escrow}`);
-      config[chainId].contracts.SecureHandshakeUnlimitedInbox.address = deployment.escrow;
-    } else if (config[chainId].contracts.Escrow) {
-        console.log(`Updating Escrow address to ${deployment.escrow}`);
-        config[chainId].contracts.Escrow.address = deployment.escrow;
+  // Helper to update contract config
+  const updateContract = (configKey, deploymentKey) => {
+    if (!config[chainId].contracts[configKey]) {
+        console.log(`Creating config entry for ${configKey}`);
+        config[chainId].contracts[configKey] = {};
     }
 
-    if (config[chainId].contracts.ActivityRewards) {
-      console.log(`Updating ActivityRewards address to ${deployment.rewards}`);
-      config[chainId].contracts.ActivityRewards.address = deployment.rewards;
+    // Update Address
+    const newAddress = deployment[deploymentKey];
+    if (newAddress) {
+        console.log(`Updating ${configKey} address to ${newAddress}`);
+        config[chainId].contracts[configKey].address = newAddress;
     }
-    
-    if (config[chainId].contracts.FeeCollector) {
-      console.log(`Updating FeeCollector address to ${deployment.feeCollector}`);
-      config[chainId].contracts.FeeCollector.address = deployment.feeCollector;
+
+    // Update ABI
+    const artifactPath = CONTRACT_MAP[configKey];
+    if (artifactPath) {
+        const fullPath = path.join(ARTIFACTS_DIR, artifactPath);
+        if (fs.existsSync(fullPath)) {
+            const artifact = JSON.parse(fs.readFileSync(fullPath));
+            config[chainId].contracts[configKey].abi = artifact.abi;
+            console.log(`Updated ABI for ${configKey}`);
+        } else {
+            console.warn(`Artifact not found: ${fullPath}`);
+        }
     }
-  }
+  };
+
+  // Update Contracts
+  // Mapping: Config Key -> Deployment JSON Key
+  updateContract("BufferToken", "token");
+  updateContract("FeeCollector", "feeCollector");
+  updateContract("SecureHandshakeUnlimitedInbox", "escrow");
+  updateContract("ActivityRewards", "rewards");
+  // updateContract("Timelock", "timelock"); // Optional if frontend uses it
 
   // 4. 写回文件
   fs.writeFileSync(FRONTEND_CONFIG_PATH, JSON.stringify(config, null, 2));

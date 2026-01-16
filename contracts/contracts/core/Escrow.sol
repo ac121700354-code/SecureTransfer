@@ -81,6 +81,9 @@ contract SecureHandshakeUnlimitedInbox is
         uint256 totalCount;
     }
     mapping(address => UserStats) private _userStats;
+    
+    // 预言机价格有效时长 (心跳)，默认 3 小时
+    uint256 public oracleHeartbeat;
 
     /**
      * @notice 获取用户指定日期的转账次数
@@ -134,25 +137,11 @@ contract SecureHandshakeUnlimitedInbox is
         require(_treasury != address(0), "Treasury address zero");
         treasury = _treasury;
         maxPendingOutbox = 20; // 默认 20 条
-        feeBps = 10; // 默认 0.1%
+        feeBps = 1; // 默认 0.01%
+        oracleHeartbeat = 3 hours; // 默认心跳 3 小时
     }
 
     // --- UUPS 升级安全保护 ---
-    
-    /**
-     * @dev 版本 V2 初始化函数
-     * @notice 仅在从 V1 升级到 V2 时调用一次
-     * @notice 未来升级 V3 时，请添加 function reinitializeV3() reinitializer(3)
-     */
-    function reinitializeV2() public reinitializer(2) {
-     
-        if (maxPendingOutbox == 0) {
-            maxPendingOutbox = 20;
-        }
-        if (feeBps == 0) {
-            feeBps = 10;
-        }
-    }
 
     // UUPS 升级授权检查：仅拥有者可升级合约逻辑
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
@@ -196,8 +185,12 @@ contract SecureHandshakeUnlimitedInbox is
         // 4. 发件箱限制：防止单用户发起大量无效订单占用存储
         require(_outbox[msg.sender].length < maxPendingOutbox, "Your outbox is full");
 
-        // 5. 生成唯一交易 ID (Hash: sender + receiver + timestamp + nonce + prevrandao)
-        // 使用 block.prevrandao (EIP-4399) 增强随机性，防止前端预测
+        // 5. 计算并预扣手续费
+        uint256 fee = _calculateFee(_token, _amount);
+        require(_amount > fee, "Amount not enough to pay fee");
+        uint256 netAmount = _amount - fee;
+
+        // 6. 生成唯一交易 ID (Hash: sender + receiver + timestamp + nonce + prevrandao)
         bytes32 id = keccak256(abi.encodePacked(
             msg.sender, 
             _receiver, 
@@ -206,8 +199,7 @@ contract SecureHandshakeUnlimitedInbox is
             _nonce++
         ));
 
-        // 6. 记录每日转账次数（纯链上活动验证）
-        // Gas 优化：复用同一个存储槽，新的一天自动重置
+        // 7. 记录每日转账次数（纯链上活动验证）
         uint256 currentDay = block.timestamp / 86400;
         UserStats storage stats = _userStats[msg.sender];
         
@@ -219,29 +211,34 @@ contract SecureHandshakeUnlimitedInbox is
         }
         stats.totalCount++;
 
-        // 7. 资金锁定
+        // 8. 资金锁定与费用划转
         if (!isNative) {
             // ERC20: 从用户钱包转入合约
             IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
+            // 支付手续费给财库
+            IERC20(_token).safeTransfer(treasury, fee);
+        } else {
+            // Native: 已经在 initiate 中通过 payable 接收
+            // 支付手续费给财库
+            (bool success, ) = treasury.call{value: fee}("");
+            require(success, "Fee transfer failed");
         }
-        // Native: 已经在 initiate 中通过 payable 接收
 
-        // 7. 写入存储记录
+        // 9. 写入存储记录 (存储净额)
         activeTransfers[id] = TransferRecord({
             sender: msg.sender,
             receiver: _receiver,
             token: _token,
-            amount: _amount,
+            amount: netAmount, // 存储实际可提现金额
             createdAt: uint64(block.timestamp)
-            // expiresAt: Removed
         });
 
-        // 8. 更新双向索引
+        // 10. 更新双向索引
         _addToInbox(_receiver, id);
         _addToOutbox(msg.sender, id);
 
-        // 9. 抛出事件
-        emit TransferInitiated(id, msg.sender, _receiver, _token, _amount);
+        // 11. 抛出事件 (amount 字段记录净额)
+        emit TransferInitiated(id, msg.sender, _receiver, _token, netAmount);
         return id;
     }
 
@@ -287,38 +284,18 @@ contract SecureHandshakeUnlimitedInbox is
         // 3. 有效期检查：订单是否已过期 - REMOVED
         // require(block.timestamp <= t.expiresAt, "Record expired");
 
-        // 4. 计算费用
-        uint256 fee = _calculateFee(t.token, t.amount);
-        // 防止粉尘攻击导致的手续费溢出 (Fee > Amount)
-        if (fee > t.amount) {
-            fee = t.amount;
-        }
-        uint256 finalAmount = t.amount - fee;
-
-        // 5. 状态清理：从映射和数组中完全移除，释放存储 Gas
+        // 4. 状态清理：从映射和数组中完全移除，释放存储 Gas
         _fullCleanup(t.sender, t.receiver, _id);
 
-        // 6. 资金分发
-        if (fee > 0) {
-            if (t.token == NATIVE_TOKEN) {
-                // 原生代币转给财库 (Soft Fail: 失败不回滚，留在合约内)
-                (bool success, ) = treasury.call{value: fee}("");
-                // require(success, "Native fee transfer failed"); 
-            } else {
-                // ERC20 转给财库
-                IERC20(t.token).safeTransfer(treasury, fee);
-            }
-        }
-        
-        // 转给接收方
+        // 5. 资金分发 (直接全额转账，因手续费已在 initiate 时扣除)
         if (t.token == NATIVE_TOKEN) {
-            (bool success, ) = t.receiver.call{value: finalAmount}("");
+            (bool success, ) = t.receiver.call{value: t.amount}("");
             require(success, "Native transfer failed");
         } else {
-            IERC20(t.token).safeTransfer(t.receiver, finalAmount);
+            IERC20(t.token).safeTransfer(t.receiver, t.amount);
         }
 
-        emit TransferSettled(_id, t.sender, t.receiver, t.token, t.amount, fee, finalAmount, "RELEASED");
+        emit TransferSettled(_id, t.sender, t.receiver, t.token, t.amount, 0, t.amount, "RELEASED");
     }
 
     /**
@@ -332,31 +309,13 @@ contract SecureHandshakeUnlimitedInbox is
         // 2. 存在性检查
         require(t.receiver != address(0), "Record not found");
 
-        // 3. 计算费用（撤回也要收费）
-        uint256 fee = _calculateFee(t.token, t.amount);
-        if (fee > t.amount) {
-            fee = t.amount;
-        }
-        uint256 refundAmount = t.amount - fee;
-
-        // 4. 状态清理
+        // 3. 状态清理
         _fullCleanup(t.sender, t.receiver, _id);
         
-        // 5. 资金分发：手续费转财库
-        if (fee > 0) {
-            if (t.token == NATIVE_TOKEN) {
-                // Soft Fail
-                (bool success, ) = treasury.call{value: fee}("");
-                // require(success, "Native fee transfer failed");
-            } else {
-                IERC20(t.token).safeTransfer(treasury, fee);
-            }
-        }
-
-        // 6. 退款：剩余资金退回给发送方
-        _refund(t.token, t.sender, refundAmount);
+        // 4. 退款：剩余资金退回给发送方 (手续费已扣除，不可退)
+        _refund(t.token, t.sender, t.amount);
         
-        emit TransferSettled(_id, t.sender, t.receiver, t.token, t.amount, fee, refundAmount, "CANCELLED");
+        emit TransferSettled(_id, t.sender, t.receiver, t.token, t.amount, 0, t.amount, "CANCELLED");
     }
 
     // 暂停协议（紧急情况）
@@ -394,7 +353,7 @@ contract SecureHandshakeUnlimitedInbox is
         require(price > 0, "Invalid price");
         require(updatedAt > 0, "Round not complete");
         require(answeredInRound >= roundId, "Stale price");
-        require(block.timestamp - updatedAt < 24 hours, "Price expired"); 
+        require(block.timestamp - updatedAt < oracleHeartbeat, "Price expired"); 
 
         // 价格偏差检查 (Anti-Flashloan Manipulation)
         // 注意：由于 view 函数无法更新 lastGoodPrice，这里只能做检查。
@@ -589,6 +548,12 @@ contract SecureHandshakeUnlimitedInbox is
         feeBps = _bps;
     }
 
+    // 设置预言机心跳时间
+    function setOracleHeartbeat(uint256 _seconds) external onlyOwner {
+        require(_seconds > 0, "Invalid heartbeat");
+        oracleHeartbeat = _seconds;
+    }
+
     // 管理员批量强制清理过期订单
     // @param _ids 要检查的订单ID列表 (由于链上无法遍历所有订单，需由管理员链下筛选后传入)
     function forceExpireBatch(bytes32[] calldata _ids) external onlyOwner {
@@ -599,48 +564,16 @@ contract SecureHandshakeUnlimitedInbox is
             // 跳过无效或已处理的记录
             if (t.receiver == address(0)) continue;
 
-            // 计算费用
-            uint256 fee = _calculateFee(t.token, t.amount);
-            if (fee > t.amount) {
-                fee = t.amount;
-            }
-            uint256 refundAmount = t.amount - fee;
-
             _fullCleanup(t.sender, t.receiver, id);
             
-            // 扣除手续费转给财库
-            if (fee > 0) {
-                if (t.token == NATIVE_TOKEN) {
-                    // Soft Fail
-                    (bool success, ) = treasury.call{value: fee}("");
-                    // require(success, "Native fee transfer failed");
-                } else {
-                    IERC20(t.token).safeTransfer(treasury, fee);
-                }
-            }
-
-            _refund(t.token, t.sender, refundAmount); // 扣除手续费后退回
-            emit TransferSettled(id, t.sender, t.receiver, t.token, t.amount, fee, refundAmount, "EXPIRED");
+            // 手续费已在 initiate 时扣除，直接退回剩余金额
+            _refund(t.token, t.sender, t.amount);
+            emit TransferSettled(id, t.sender, t.receiver, t.token, t.amount, 0, t.amount, "EXPIRED");
         }
     }
 
     /**
-     * @notice 紧急提取滞留在合约中的资金 (仅限 Owner，有Timelock)
-     * @dev 用于提取因 Soft Fail 而滞留的手续费，或误转入的无关代币
-     * @param token 代币地址 (0x0 代表原生代币)
-     * @param to 接收地址
-     * @param amount 提取金额
+     * @dev 保留 49 个存储槽，用于未来升级时防止存储冲突
      */
-    function emergencyWithdraw(address token, address to, uint256 amount) external onlyOwner {
-        if (token == NATIVE_TOKEN) {
-            Address.sendValue(payable(to), amount);
-        } else {
-            IERC20(token).safeTransfer(to, amount);
-        }
-    }
-
-    /**
-     * @dev 保留 50 个存储槽，用于未来升级时防止存储冲突
-     */
-    uint256[50] private __gap;
+    uint256[49] private __gap;
 }

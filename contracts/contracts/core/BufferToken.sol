@@ -13,7 +13,7 @@ contract BufferToken is ERC20, ERC20Burnable, AccessControl, ERC20Permit, ERC20V
     // 使用 constant 变量替代 struct constant，因为 Solidity 暂不支持 struct constant
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    uint256 public constant MAX_SUPPLY = 1e9 * 1e18; // 1 亿代币（18 小数位）
+    uint256 public constant MAX_SUPPLY = 1e9 * 1e18; // 10 亿代币（18 小数位）
 
     mapping(address => bool) public isTrustedDelegatee;
 

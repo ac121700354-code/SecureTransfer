@@ -55,13 +55,16 @@ contract FeeCollector is Ownable, ReentrancyGuard {
     
     // DAO 金库地址
     address public daoTreasury;
+    // 质押/社区激励地址
+    address public stakingTreasury;
 
     // 触发回购的最小美元价值 ($10,000)
     uint256 public buybackThresholdUsd = 10_000 * 1e18; 
     
     // 分配比例 (基点 10000 = 100%)
-    uint256 public burnRatioBps = 9000;      // 90% 销毁
-    // treasuryRatio 由 10000 - burnRatioBps 计算得出
+    uint256 public burnRatioBps = 5000;      // 50% 销毁
+    uint256 public stakingRatioBps = 3000;   // 30% 质押/激励
+    // treasuryRatio 由 10000 - burnRatioBps - stakingRatioBps 计算得出 (20%)
     
     // 回购功能开关
     bool public buybackEnabled = false;
@@ -74,25 +77,36 @@ contract FeeCollector is Ownable, ReentrancyGuard {
 
     // 事件
     event KeeperUpdated(address indexed keeper, bool active);
-    event RatiosUpdated(uint256 burnRatio, uint256 treasuryRatio);
+    event RatiosUpdated(uint256 burnRatio, uint256 stakingRatio, uint256 treasuryRatio);
     event BuybackExecuted(address indexed token, uint256 amountIn, uint256 stpAmountOut, address[] path);
     event BuybackFailed(address indexed token, uint256 amountIn, string reason);
     event Burned(uint256 amount);
     event DaoFunded(uint256 amount);
+    event StakingFunded(uint256 amount);
     event ThresholdUpdated(uint256 newThreshold);
     event BuybackEnabledUpdated(bool enabled);
     event DaoTreasuryUpdated(address newTreasury);
+    event StakingTreasuryUpdated(address newTreasury);
     event SupportedTokenUpdated(address token, bool supported);
     event SwapPathUpdated(address token, address[] path);
 
-    constructor(address _bufferToken, address _uniRouter, address _weth, address _daoTreasury) Ownable(msg.sender) {
+    constructor(address _bufferToken, address _uniRouter, address _weth, address _daoTreasury, address _stakingTreasury) Ownable(msg.sender) {
         require(_bufferToken != address(0), "Token zero");
         require(_uniRouter != address(0), "Router zero");
         require(_daoTreasury != address(0), "Treasury zero");
+        // stakingTreasury can be zero initially if not deployed yet, but better to require it or set later
+        // Given we will deploy it, let's allow setting it later if needed, but for now constructor param is good.
+        // Actually, to avoid circular dependency deployment issues if Staking depends on FeeCollector (unlikely), 
+        // let's allow it to be updated. But let's add it to constructor for completeness if available.
+        // Wait, existing deployment scripts might break if I change constructor signature.
+        // It's better to keep constructor compatible or update deployment scripts.
+        // I will update deployment scripts too.
+        
         bufferToken = _bufferToken;
         uniRouter = _uniRouter;
         weth = _weth;
         daoTreasury = _daoTreasury;
+        stakingTreasury = _stakingTreasury;
     }
 
     // 允许接收原生代币 (BNB/ETH)
@@ -105,16 +119,23 @@ contract FeeCollector is Ownable, ReentrancyGuard {
         emit KeeperUpdated(_keeper, _active);
     }
 
-    function setBurnRatio(uint256 _burnRatio) external onlyOwner {
-        require(_burnRatio <= 10000, "Ratio too high");
+    function setRatios(uint256 _burnRatio, uint256 _stakingRatio) external onlyOwner {
+        require(_burnRatio + _stakingRatio <= 10000, "Ratios too high");
         burnRatioBps = _burnRatio;
-        emit RatiosUpdated(_burnRatio, 10000 - _burnRatio);
+        stakingRatioBps = _stakingRatio;
+        emit RatiosUpdated(_burnRatio, _stakingRatio, 10000 - _burnRatio - _stakingRatio);
     }
     
     function setDaoTreasury(address _daoTreasury) external onlyOwner {
         require(_daoTreasury != address(0), "Zero address");
         daoTreasury = _daoTreasury;
         emit DaoTreasuryUpdated(_daoTreasury);
+    }
+
+    function setStakingTreasury(address _stakingTreasury) external onlyOwner {
+        require(_stakingTreasury != address(0), "Zero address");
+        stakingTreasury = _stakingTreasury;
+        emit StakingTreasuryUpdated(_stakingTreasury);
     }
 
     function setPriceFeed(address token, address feed) external onlyOwner {
@@ -234,12 +255,21 @@ contract FeeCollector is Ownable, ReentrancyGuard {
         require(totalBfrBought > 0, "No BFR bought");
         
         uint256 burnAmount = (totalBfrBought * burnRatioBps) / 10000;
-        uint256 daoAmount = totalBfrBought - burnAmount; // 剩余归 DAO
+        uint256 stakingAmount = (totalBfrBought * stakingRatioBps) / 10000;
+        uint256 daoAmount = totalBfrBought - burnAmount - stakingAmount; // 剩余归 DAO
 
         // 执行销毁
-        _burnBfr(burnAmount);
+        if (burnAmount > 0) {
+            _burnBfr(burnAmount);
+        }
         
-        // 10% 转入 DAO
+        // 30% 转入 Staking/Rewards
+        if (stakingAmount > 0 && stakingTreasury != address(0)) {
+            IERC20(bufferToken).safeTransfer(stakingTreasury, stakingAmount);
+            emit StakingFunded(stakingAmount);
+        }
+
+        // 20% 转入 DAO
         if (daoAmount > 0) {
             IERC20(bufferToken).safeTransfer(daoTreasury, daoAmount);
             emit DaoFunded(daoAmount);
