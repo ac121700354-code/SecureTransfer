@@ -30,6 +30,7 @@ interface AggregatorV3Interface {
  * @notice 核心机制：付款方并发限制、收款方无限接收、纠错撤回、极致存储清理。
  * @dev 使用 UUPS 代理模式，所有状态变量必须在 initialize 中初始化，严禁使用 constructor。
  */
+/// @custom:storage-layout v1.0
 contract SecureHandshakeUnlimitedInbox is 
     Initializable, 
     UUPSUpgradeable, 
@@ -624,7 +625,7 @@ contract SecureHandshakeUnlimitedInbox is
     }
 
     /**
-     * @notice 紧急提取滞留在合约中的资金 (仅限 Owner)
+     * @notice 紧急提取滞留在合约中的资金 (仅限 Owner，有Timelock)
      * @dev 用于提取因 Soft Fail 而滞留的手续费，或误转入的无关代币
      * @param token 代币地址 (0x0 代表原生代币)
      * @param to 接收地址

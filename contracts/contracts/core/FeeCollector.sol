@@ -5,8 +5,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 
 // 简单的 Chainlink 接口
 interface AggregatorV3Interface {
@@ -46,9 +46,9 @@ contract FeeCollector is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // --- 配置 ---
-    address public bufferToken;       // 协议代币 STP
-    address public uniRouter;         // DEX 路由地址 (Uniswap/Pancake)
-    address public weth;              // WETH/WBNB 地址
+    address public immutable bufferToken;       // 协议代币 STP
+    address public immutable uniRouter;         // DEX 路由地址 (Uniswap/Pancake)
+    address public immutable weth;              // WETH/WBNB 地址
     
     // 销毁地址
     address public constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
@@ -69,16 +69,21 @@ contract FeeCollector is Ownable, ReentrancyGuard {
     // 代币 -> 预言机 映射
     mapping(address => address) public priceFeeds;
     mapping(address => bool) public keepers;
+    mapping(address => bool) public supportedTokens; // 白名单：仅允许受支持的代币参与回购
+    mapping(address => address[]) public swapPaths;  // 自定义路由路径
 
     // 事件
     event KeeperUpdated(address indexed keeper, bool active);
     event RatiosUpdated(uint256 burnRatio, uint256 treasuryRatio);
-    event BuybackExecuted(address indexed token, uint256 amountIn, uint256 stpAmountOut);
+    event BuybackExecuted(address indexed token, uint256 amountIn, uint256 stpAmountOut, address[] path);
+    event BuybackFailed(address indexed token, uint256 amountIn, string reason);
     event Burned(uint256 amount);
     event DaoFunded(uint256 amount);
     event ThresholdUpdated(uint256 newThreshold);
     event BuybackEnabledUpdated(bool enabled);
     event DaoTreasuryUpdated(address newTreasury);
+    event SupportedTokenUpdated(address token, bool supported);
+    event SwapPathUpdated(address token, address[] path);
 
     constructor(address _bufferToken, address _uniRouter, address _weth, address _daoTreasury) Ownable(msg.sender) {
         require(_bufferToken != address(0), "Token zero");
@@ -95,21 +100,11 @@ contract FeeCollector is Ownable, ReentrancyGuard {
 
     // --- 管理配置 ---
 
-    /**
-     * @notice 设置 Keeper 权限 (用于自动化脚本)
-     * @param _keeper 脚本地址
-     * @param _active 是否启用
-     */
     function setKeeper(address _keeper, bool _active) external onlyOwner {
         keepers[_keeper] = _active;
         emit KeeperUpdated(_keeper, _active);
     }
 
-    /**
-     * @notice 设置销毁比例
-     * @param _burnRatio 销毁比例 (基点，最大 10000)
-     * @dev 剩余部分 (10000 - _burnRatio) 自动归入国库
-     */
     function setBurnRatio(uint256 _burnRatio) external onlyOwner {
         require(_burnRatio <= 10000, "Ratio too high");
         burnRatioBps = _burnRatio;
@@ -124,6 +119,24 @@ contract FeeCollector is Ownable, ReentrancyGuard {
 
     function setPriceFeed(address token, address feed) external onlyOwner {
         priceFeeds[token] = feed;
+        // 自动将有预言机的代币加入白名单
+        if (feed != address(0)) {
+            supportedTokens[token] = true;
+            emit SupportedTokenUpdated(token, true);
+        }
+    }
+
+    function setSupportedToken(address token, bool supported) external onlyOwner {
+        supportedTokens[token] = supported;
+        emit SupportedTokenUpdated(token, supported);
+    }
+
+    function setSwapPath(address token, address[] calldata path) external onlyOwner {
+        require(path.length >= 2, "Invalid path");
+        require(path[0] == token, "Path start mismatch");
+        require(path[path.length - 1] == bufferToken, "Path end mismatch");
+        swapPaths[token] = path;
+        emit SwapPathUpdated(token, path);
     }
 
     function setBuybackThreshold(uint256 _newThreshold) external onlyOwner {
@@ -151,9 +164,12 @@ contract FeeCollector is Ownable, ReentrancyGuard {
             totalUsdValue += _getUsdValue(address(0), address(this).balance);
         }
 
-        // 2. 计算 ERC20 Token 价值
+        // 2. 计算 ERC20 Token 价值 (优化：只计算有余额且受支持的)
         for (uint256 i = 0; i < tokens.length; i++) {
             address token = tokens[i];
+            // 只检查受支持的代币
+            if (!supportedTokens[token]) continue;
+            
             uint256 bal = IERC20(token).balanceOf(address(this));
             if (bal > 0) {
                 totalUsdValue += _getUsdValue(token, bal);
@@ -167,6 +183,8 @@ contract FeeCollector is Ownable, ReentrancyGuard {
      * @notice 执行回购与销毁
      * @dev 任何人均可调用，只要满足条件
      * @param tokens 要处理的代币列表
+     * @param minBfrOuts 每个代币对应的最小 STP 输出量 (滑点保护)
+     * @param minBfrFromNative 原生代币对应的最小 STP 输出量
      * @param includeNative 是否处理原生代币
      */
     function executeBuybackAndBurn(
@@ -189,16 +207,26 @@ contract FeeCollector is Ownable, ReentrancyGuard {
         if (includeNative) {
             uint256 ethBal = address(this).balance;
             if (ethBal > 0) {
-                totalBfrBought += _swapEthForBfr(ethBal, minBfrFromNative); 
+                try this.swapEthForBfr(ethBal, minBfrFromNative) returns (uint256 bought) {
+                    totalBfrBought += bought;
+                } catch {
+                     emit BuybackFailed(address(0), ethBal, "Native Swap Failed");
+                }
             }
         }
 
-        // 3. 处理 ERC20 -> BFR
+        // 3. 处理 ERC20 -> BFR (使用 try/catch 防止单个失败阻塞整体)
         for (uint256 i = 0; i < tokens.length; i++) {
             address token = tokens[i];
+            if (!supportedTokens[token]) continue;
+
             uint256 bal = IERC20(token).balanceOf(address(this));
             if (bal > 0) {
-                totalBfrBought += _swapTokenForBfr(token, bal, minBfrOuts[i]);
+                try this.swapTokenForBfr(token, bal, minBfrOuts[i]) returns (uint256 bought) {
+                    totalBfrBought += bought;
+                } catch {
+                    emit BuybackFailed(token, bal, "Token Swap Failed");
+                }
             }
         }
 
@@ -218,38 +246,44 @@ contract FeeCollector is Ownable, ReentrancyGuard {
         }
     }
 
-    // --- 内部逻辑 ---
+    // --- Public Swap Functions (exposed for try/catch) ---
+    // 必须是 public 才能被 this.call 调用，加上 onlySelf 保护
+    
+    modifier onlySelf() {
+        require(msg.sender == address(this), "Internal call only");
+        _;
+    }
 
-    function _swapEthForBfr(uint256 amountIn, uint256 minOut) internal returns (uint256) {
+    function swapEthForBfr(uint256 amountIn, uint256 minOut) external onlySelf returns (uint256) {
         address[] memory path = new address[](2);
         path[0] = weth;
         path[1] = bufferToken;
 
-        // 记录初始余额
         uint256 beforeBal = IERC20(bufferToken).balanceOf(address(this));
 
         IUniswapV2Router02(uniRouter).swapExactETHForTokensSupportingFeeOnTransferTokens{value: amountIn}(
             minOut,
             path,
             address(this),
-            block.timestamp
+            block.timestamp + 300 // 5 min deadline
         );
 
         uint256 bought = IERC20(bufferToken).balanceOf(address(this)) - beforeBal;
-        emit BuybackExecuted(address(0), amountIn, bought);
+        emit BuybackExecuted(address(0), amountIn, bought, path);
         return bought;
     }
 
-    function _swapTokenForBfr(address token, uint256 amountIn, uint256 minOut) internal returns (uint256) {
-        // OpenZeppelin v5 推荐使用 forceApprove 替代 safeApprove(0) + safeApprove(amount)
+    function swapTokenForBfr(address token, uint256 amountIn, uint256 minOut) external onlySelf returns (uint256) {
         IERC20(token).forceApprove(uniRouter, amountIn);
 
-        address[] memory path = new address[](3);
-        path[0] = token;
-        path[1] = weth; // 通常通过 WETH/WBNB 路由：Token -> WBNB -> BFR
-        path[2] = bufferToken;
-
-        // 如果直接有 Token-BFR 交易对，可以优化路径，这里默认走中间路由
+        address[] memory path = swapPaths[token];
+        if (path.length == 0) {
+            // 默认路径: Token -> WETH -> BufferToken
+            path = new address[](3);
+            path[0] = token;
+            path[1] = weth;
+            path[2] = bufferToken;
+        }
 
         uint256 beforeBal = IERC20(bufferToken).balanceOf(address(this));
 
@@ -258,20 +292,20 @@ contract FeeCollector is Ownable, ReentrancyGuard {
             minOut,
             path,
             address(this),
-            block.timestamp
+            block.timestamp + 300 // 5 min deadline
         );
 
         uint256 bought = IERC20(bufferToken).balanceOf(address(this)) - beforeBal;
-        emit BuybackExecuted(token, amountIn, bought);
+        emit BuybackExecuted(token, amountIn, bought, path);
         return bought;
     }
 
+    // --- 内部辅助 ---
+
     function _burnBfr(uint256 amount) internal {
-        // 尝试调用 burn
         try IBurnable(bufferToken).burn(amount) {
             // Burn 成功
         } catch {
-            // 如果 Token 不支持 burn，则转入死穴
             IERC20(bufferToken).safeTransfer(DEAD_ADDRESS, amount);
         }
         emit Burned(amount);
@@ -279,35 +313,38 @@ contract FeeCollector is Ownable, ReentrancyGuard {
 
     function _getUsdValue(address token, uint256 amount) internal view returns (uint256) {
         address feed = (token == address(0)) ? priceFeeds[weth] : priceFeeds[token];
-        // 如果没有预言机，暂时按 0 价值计算，防止阻塞
         if (feed == address(0)) return 0;
 
         uint8 feedDecimals = AggregatorV3Interface(feed).decimals();
         uint8 tokenDecimals;
+        
         if (token == address(0)) {
             tokenDecimals = 18;
         } else {
-            // 尝试获取 decimals，如果失败默认为 18
             try IERC20Metadata(token).decimals() returns (uint8 d) {
                 tokenDecimals = d;
             } catch {
-                tokenDecimals = 18;
+                tokenDecimals = 18; // Default fallback
             }
         }
 
-        // Value = Amount * Price
-        // 统一转为 18 位精度 USD
-        
         (, int256 price, , uint256 updatedAt, ) = AggregatorV3Interface(feed).latestRoundData();
         
-        // Stale Price Check
         if (price <= 0) return 0;
-        if (updatedAt == 0 || block.timestamp - updatedAt > 24 hours) return 0; // Stale price treated as 0 value
+        if (updatedAt == 0 || block.timestamp - updatedAt > 24 hours) return 0; 
         
-        return (amount * uint256(price) * 1e18) / (10 ** feedDecimals) / (10 ** tokenDecimals); 
+        // Calculation: amount * price / (10^feedDecimals) / (10^tokenDecimals) * 1e18
+        // Using Math.mulDiv for safety
+        uint256 value = Math.mulDiv(
+            amount * uint256(price), 
+            1e18, 
+            (10 ** feedDecimals) * (10 ** tokenDecimals)
+        );
+        
+        return value;
     }
     
-    // 紧急提取 (防止资产卡死)
+    // 紧急提取
     function emergencyWithdraw(address token, address to) external onlyOwner {
         if (token == address(0)) {
             payable(to).transfer(address(this).balance);

@@ -14,7 +14,7 @@
         "symbol": "HK",
         "name": "Handshk Token",
         "logo": "/tokens/bfr-logo.svg?v=12",
-        "address": "0x10265Bcfca60eAA7C73fd0d3725E0114AFA0E1F0"
+        "address": "0x61c39cF1dBeB74d8E36F2Eb80737E9fFd9d6487B"
       },
       {
         "symbol": "USDT",
@@ -49,7 +49,7 @@
     ],
     "contracts": {
       "BufferToken": {
-        "address": "0x10265Bcfca60eAA7C73fd0d3725E0114AFA0E1F0",
+        "address": "0x61c39cF1dBeB74d8E36F2Eb80737E9fFd9d6487B",
         "abi": [
           {
             "inputs": [
@@ -1406,7 +1406,7 @@
         ]
       },
       "EscrowProxy": {
-        "address": "0x972456637de51C75AC6DEf2ca377C4c58B96E397",
+        "address": "0x497589ab12326be34007FeeB66168C0CD85fC8e5",
         "abi": [
           {
             "inputs": [],
@@ -3522,7 +3522,7 @@
         ]
       },
       "ActivityRewards": {
-        "address": "0x51A83a9bC7a546B3F0AE50b3F42F868C627f2BdE",
+        "address": "0xc5b71a2E748741f0cCbe6EA82F46d4F9E1177Aa9",
         "abi": [
           {
             "inputs": [

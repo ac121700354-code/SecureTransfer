@@ -336,7 +336,6 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
           
           // Dispatch event for ActivityRewards to pick up
           window.dispatchEvent(new Event('user_transfer_completed'));
-          console.log("Local transfer stats updated:", newCount);
       } catch (e) {
           console.warn("Failed to update local stats:", e);
       }

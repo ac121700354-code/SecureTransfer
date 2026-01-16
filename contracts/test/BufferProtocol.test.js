@@ -14,7 +14,7 @@ describe("Buffer Protocol Integration Test", function () {
 
     // 1. 部署 BufferToken
     const BufferToken = await ethers.getContractFactory("BufferToken");
-    bufferToken = await BufferToken.deploy(owner.address);
+    bufferToken = await BufferToken.deploy(owner.address, owner.address, ethers.parseEther("1000000"));
     await bufferToken.waitForDeployment();
 
     // 2. 部署 MockAggregator ($2000 ETH/BNB Price)
@@ -26,7 +26,12 @@ describe("Buffer Protocol Integration Test", function () {
     // 本地测试没有真实 Router，我们用 owner 地址假装是 Router，或者部署一个 MockRouter
     // 为了简化，我们只测试 FeeCollector 接收资金，暂不测试 Swap (因为没有真实池子)
     const FeeCollector = await ethers.getContractFactory("FeeCollector");
-    feeCollector = await FeeCollector.deploy(await bufferToken.getAddress(), owner.address, owner.address);
+    feeCollector = await FeeCollector.deploy(
+      await bufferToken.getAddress(), 
+      owner.address, 
+      owner.address,
+      treasuryWallet.address // DAO Treasury
+    );
     await feeCollector.waitForDeployment();
 
     // 4. 部署 Escrow (UUPS)

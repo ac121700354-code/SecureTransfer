@@ -62,7 +62,6 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
             escrowContract.totalTransferCounts(account)
         ]);
 
-        console.log(`[Stats] Daily: ${daily}, Total: ${total}`);
         setTransferCount(Number(daily));
         setTotalTransferCount(Number(total));
 
@@ -114,7 +113,6 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
                     const contract = new ethers.Contract(contractData.address, contractData.abi, signer);
                     setRewardContract(contract);
                     fetchUserData(contract, account);
-                    console.log("ActivityRewards Contract Connected:", contractData.address);
                 } catch (e) {
                     console.error("Contract init failed:", e);
                 }
@@ -257,7 +255,6 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
     }
     setCheckInLoading(true);
     try {
-      console.log("Submitting check-in...");
       const tx = await rewardContract.checkIn();
       toast.info(t.checkInSubmitted);
       await tx.wait();
