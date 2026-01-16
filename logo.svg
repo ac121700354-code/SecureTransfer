@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background Circle -->
+  <circle cx="256" cy="256" r="256" fill="#5480f6" />
+  
+  <!-- Shield Group -->
+  <g transform="translate(136, 116) scale(0.94)">
+    <!-- Left Half of Shield (Lighter/White) -->
+    <path d="M128 0 
+             L128 320 
+             C128 320, 0 256, 0 128 
+             L0 32 
+             L128 0 Z" 
+          fill="#ffffff" />
+          
+    <!-- Right Half of Shield (Slightly Darker/Shadowed) -->
+    <path d="M128 0 
+             L256 32 
+             L256 128 
+             C256 256, 128 320, 128 320 
+             L128 0 Z" 
+          fill="#e2e8f0" />
+  </g>
+</svg>
