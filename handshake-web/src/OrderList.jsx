@@ -272,9 +272,11 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
       
       // Ensure wallet is on the selected network
       const network = await provider.getNetwork();
-      if (Number(network.chainId) !== chainId) {
+      
+      // Fix: Compare chainIds as BigInt or Strings to avoid type mismatch issues (1 vs 97n)
+      if (network.chainId.toString() !== chainId.toString()) {
           try {
-              await provider.send("wallet_switchEthereumChain", [{ chainId: "0x" + chainId.toString(16) }]);
+              await provider.send("wallet_switchEthereumChain", [{ chainId: "0x" + BigInt(chainId).toString(16) }]);
           } catch (e) {
               throw new Error("Please switch to the correct network to proceed.");
           }
