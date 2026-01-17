@@ -46,6 +46,7 @@ contract SecureHandshakeUnlimitedInbox is
         address receiver;   // 接收人
         address token;      // 代币地址（0x0 代表原生代币）
         uint256 amount;     // 金额
+        uint256 totalAmount;// 原始金额
         uint64 createdAt;   // 创建时间戳 (uint64 足够覆盖到 5849 亿年)
     }
 
@@ -235,6 +236,7 @@ contract SecureHandshakeUnlimitedInbox is
             sender: msg.sender,
             receiver: _receiver,
             token: _token,
+            totalAmount: _amount, // 存储原始金额
             amount: netAmount, // 存储实际可提现金额
             createdAt: uint64(block.timestamp)
         });

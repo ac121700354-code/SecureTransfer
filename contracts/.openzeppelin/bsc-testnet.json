@@ -35,6 +35,11 @@
       "address": "0x6C2C2bbBc04c91D774915DE8938070797aC1D77a",
       "txHash": "0x77c4f8f9aa893c0c967af6859fd7fd2552c1a23c52dbf2ae6f5c5f09c8b2cc39",
       "kind": "uups"
+    },
+    {
+      "address": "0xC86601AFf56c2c5591894404b6Cb88b8938d3F54",
+      "txHash": "0xa420d58108c53c6c8e11c5affc00a5c13878dca1d28f4de9840451243af6de60",
+      "kind": "uups"
     }
   ],
   "impls": {
@@ -1551,6 +1556,355 @@
             "numberOfBytes": "160"
           },
           "t_struct(UserStats)3261_storage": {
+            "label": "struct SecureHandshakeUnlimitedInbox.UserStats",
+            "members": [
+              {
+                "label": "lastDay",
+                "type": "t_uint32",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "dailyCount",
+                "type": "t_uint224",
+                "offset": 4,
+                "slot": "0"
+              },
+              {
+                "label": "totalCount",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint224": {
+            "label": "uint224",
+            "numberOfBytes": "28"
+          },
+          "t_uint32": {
+            "label": "uint32",
+            "numberOfBytes": "4"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.Pausable": [
+            {
+              "contract": "PausableUpgradeable",
+              "label": "_paused",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol:21",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol:40",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "0a73c48127363ba55b637aa5198440be7162e726803dfcb593076ce866b320b7": {
+      "address": "0x29ba97e76b42A4C48DfDd5c67d816E68c2d07981",
+      "txHash": "0x0a2d184fef649527372e3a5ccaeaa76a3973286373354581338005f4c332c507",
+      "layout": {
+        "solcVersion": "0.8.28",
+        "storage": [
+          {
+            "label": "_nonce",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint256",
+            "contract": "SecureHandshakeUnlimitedInbox",
+            "src": "contracts/core/Escrow.sol:67"
+          },
+          {
+            "label": "treasury",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_address",
+            "contract": "SecureHandshakeUnlimitedInbox",
+            "src": "contracts/core/Escrow.sol:70"
+          },
+          {
+            "label": "tokenPriceFeeds",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_mapping(t_address,t_address)",
+            "contract": "SecureHandshakeUnlimitedInbox",
+            "src": "contracts/core/Escrow.sol:72"
+          },
+          {
+            "label": "activeTransfers",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_mapping(t_bytes32,t_struct(TransferRecord)3203_storage)",
+            "contract": "SecureHandshakeUnlimitedInbox",
+            "src": "contracts/core/Escrow.sol:74"
+          },
+          {
+            "label": "_inbox",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_mapping(t_address,t_array(t_bytes32)dyn_storage)",
+            "contract": "SecureHandshakeUnlimitedInbox",
+            "src": "contracts/core/Escrow.sol:77"
+          },
+          {
+            "label": "_outbox",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_mapping(t_address,t_array(t_bytes32)dyn_storage)",
+            "contract": "SecureHandshakeUnlimitedInbox",
+            "src": "contracts/core/Escrow.sol:82"
+          },
+          {
+            "label": "_inboxIndex",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_mapping(t_bytes32,t_uint256)",
+            "contract": "SecureHandshakeUnlimitedInbox",
+            "src": "contracts/core/Escrow.sol:88"
+          },
+          {
+            "label": "_outboxIndex",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_mapping(t_bytes32,t_uint256)",
+            "contract": "SecureHandshakeUnlimitedInbox",
+            "src": "contracts/core/Escrow.sol:90"
+          },
+          {
+            "label": "maxPendingOutbox",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_uint256",
+            "contract": "SecureHandshakeUnlimitedInbox",
+            "src": "contracts/core/Escrow.sol:96"
+          },
+          {
+            "label": "feeBps",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_uint256",
+            "contract": "SecureHandshakeUnlimitedInbox",
+            "src": "contracts/core/Escrow.sol:98"
+          },
+          {
+            "label": "_userStats",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_mapping(t_address,t_struct(UserStats)3263_storage)",
+            "contract": "SecureHandshakeUnlimitedInbox",
+            "src": "contracts/core/Escrow.sol:107"
+          },
+          {
+            "label": "oracleHeartbeat",
+            "offset": 0,
+            "slot": "11",
+            "type": "t_uint256",
+            "contract": "SecureHandshakeUnlimitedInbox",
+            "src": "contracts/core/Escrow.sol:112"
+          },
+          {
+            "label": "maxPendingInbox",
+            "offset": 0,
+            "slot": "12",
+            "type": "t_uint256",
+            "contract": "SecureHandshakeUnlimitedInbox",
+            "src": "contracts/core/Escrow.sol:112"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "13",
+            "type": "t_array(t_uint256)48_storage",
+            "contract": "SecureHandshakeUnlimitedInbox",
+            "src": "contracts/core/Escrow.sol:593"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_struct(InitializableStorage)73_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)13_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(PausableStorage)214_storage": {
+            "label": "struct PausableUpgradeable.PausableStorage",
+            "members": [
+              {
+                "label": "_paused",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReentrancyGuardStorage)278_storage": {
+            "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
+            "members": [
+              {
+                "label": "_status",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_array(t_bytes32)dyn_storage": {
+            "label": "bytes32[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_uint256)48_storage": {
+            "label": "uint256[48]",
+            "numberOfBytes": "1536"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_address)": {
+            "label": "mapping(address => address)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_array(t_bytes32)dyn_storage)": {
+            "label": "mapping(address => bytes32[])",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(UserStats)3263_storage)": {
+            "label": "mapping(address => struct SecureHandshakeUnlimitedInbox.UserStats)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(TransferRecord)3203_storage)": {
+            "label": "mapping(bytes32 => struct SecureHandshakeUnlimitedInbox.TransferRecord)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_uint256)": {
+            "label": "mapping(bytes32 => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(TransferRecord)3203_storage": {
+            "label": "struct SecureHandshakeUnlimitedInbox.TransferRecord",
+            "members": [
+              {
+                "label": "sender",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "receiver",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "token",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "amount",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "totalAmount",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "createdAt",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "5"
+              }
+            ],
+            "numberOfBytes": "192"
+          },
+          "t_struct(UserStats)3263_storage": {
             "label": "struct SecureHandshakeUnlimitedInbox.UserStats",
             "members": [
               {
