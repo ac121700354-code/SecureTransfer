@@ -108,7 +108,7 @@ contract SecureHandshakeUnlimitedInbox is
     }
 
     // 事件定义
-    event TransferInitiated(bytes32 indexed id, address indexed sender, address indexed receiver, address token, uint256 amount);
+    event TransferInitiated(bytes32 indexed id, address indexed sender, address indexed receiver, address token, uint256 amount, uint256 totalAmount);
     event TransferSettled(
         bytes32 indexed id, 
         address indexed sender, 
@@ -243,8 +243,8 @@ contract SecureHandshakeUnlimitedInbox is
         _addToInbox(_receiver, id);
         _addToOutbox(msg.sender, id);
 
-        // 11. 抛出事件 (amount 字段记录净额)
-        emit TransferInitiated(id, msg.sender, _receiver, _token, netAmount);
+        // 11. 抛出事件 (amount 字段记录净额, totalAmount 记录原始金额)
+        emit TransferInitiated(id, msg.sender, _receiver, _token, netAmount, _amount);
         return id;
     }
 
