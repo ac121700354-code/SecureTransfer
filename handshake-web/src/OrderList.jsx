@@ -77,22 +77,13 @@ const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensC
              </div>
 
              {/* Amount + Token */}
-             <div className="flex flex-col items-end gap-0.5">
-                <div className="flex items-center gap-2">
-                    <span className={`text-sm font-bold tracking-tight leading-none ${isOut ? 'text-rose-400' : 'text-emerald-400'}`} title={safeFormat(order.amount)}>
-                    {isOut ? "-" : "+"} {safeFormat(order.amount)}
-                    </span>
-                    <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                    {getTokenName(order.token)}
-                    </span>
-                </div>
-                {/* Original Amount */}
-                {order.originalAmount && order.originalAmount != order.amount && (
-                    <div className="text-[9px] text-slate-500 flex items-center gap-1" title={t.originalAmount}>
-                        <span className="opacity-70">{t.originalAmount}:</span>
-                        <span className="font-mono text-slate-400">{safeFormat(order.originalAmount)}</span>
-                    </div>
-                )}
+             <div className="flex items-center gap-2">
+                <span className={`text-sm font-bold tracking-tight leading-none ${isOut ? 'text-rose-400' : 'text-emerald-400'}`} title={safeFormat(order.totalAmount || order.amount)}>
+                  {isOut ? "-" : "+"} {safeFormat(order.totalAmount || order.amount)}
+                </span>
+                <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                   {getTokenName(order.token)}
+                </span>
              </div>
          </div>
        </div>
@@ -163,48 +154,19 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
 
       // 2. 辅助函数：批量获取详情
       const fetchDetails = async (ids) => {
-        // Get current block for event filtering range
-        let currentBlock = 0;
-        try {
-            currentBlock = await provider.getBlockNumber();
-        } catch (e) {
-            console.warn("Failed to get block number", e);
-        }
-
         const details = await Promise.all(ids.map(async (id) => {
           try {
             const record = await contract.activeTransfers(id);
-            // record: [sender, receiver, token, amount, createdAt]
+            // record: [sender, receiver, token, amount, totalAmount, createdAt]
             
-            let originalAmount = null;
-            try {
-                // 尝试获取 TransferInitiated 事件以读取原始金额 (totalAmount)
-                // 优化：只查询最近 50,000 个区块（约 40 小时），避免 RPC 限制报错
-                const filter = contract.filters.TransferInitiated(id);
-                const fromBlock = currentBlock > 50000 ? currentBlock - 50000 : 0;
-                
-                const events = await contract.queryFilter(filter, fromBlock);
-                if (events && events.length > 0) {
-                    const args = events[0].args;
-                    // 优先尝试读取命名参数，兼容旧版 ABI
-                    if (args.totalAmount !== undefined) {
-                        originalAmount = args.totalAmount;
-                    } else if (args.length >= 6) {
-                        originalAmount = args[5];
-                    }
-                }
-            } catch (evtErr) {
-                console.warn("Failed to fetch event for original amount", evtErr);
-            }
-
             return {
               id: id,
               sender: record[0],
               receiver: record[1],
               token: record[2],
               amount: record[3],
-              createdAt: record[4],
-              originalAmount: originalAmount
+              totalAmount: record[4], // 从合约直接读取原始金额
+              createdAt: record[5],
             };
           } catch (e) {
             console.error("Failed to fetch order:", id, e);

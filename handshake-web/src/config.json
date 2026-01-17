@@ -14,7 +14,7 @@
         "symbol": "HK",
         "name": "Handshk Token",
         "logo": "/logo.svg",
-        "address": "0x723864271b3D5938aBA5392625D1A907b100935E"
+        "address": "0x1b0bb6a42621A46Da59b778072193f9775584c14"
       },
       {
         "symbol": "USDT",
@@ -49,7 +49,7 @@
     ],
     "contracts": {
       "BufferToken": {
-        "address": "0x723864271b3D5938aBA5392625D1A907b100935E",
+        "address": "0x1b0bb6a42621A46Da59b778072193f9775584c14",
         "abi": [
           {
             "inputs": [
@@ -3522,7 +3522,7 @@
         ]
       },
       "ActivityRewards": {
-        "address": "0x245F6F084b956C6f8b0E5297Bfe45bCf5F40690B",
+        "address": "0x42B78B6f70CB72cD76D856eC9F4f93919BD99e0d",
         "abi": [
           {
             "inputs": [
@@ -4279,7 +4279,7 @@
         "address": "0xd66c6B4F0be8CE5b39D52E0Fd1344c389929B378"
       },
       "FeeCollector": {
-        "address": "0x99DeF8DF6073D0e53E9B56f7Ec9b09CF75Efc079",
+        "address": "0x490213fdD70A2c1dfC6223F729e49411e6DF5468",
         "abi": [
           {
             "inputs": [
@@ -5151,7 +5151,7 @@
         ]
       },
       "SecureHandshakeUnlimitedInbox": {
-        "address": "0x6C2C2bbBc04c91D774915DE8938070797aC1D77a",
+        "address": "0xC86601AFf56c2c5591894404b6Cb88b8938d3F54",
         "abi": [
           {
             "inputs": [],
@@ -5558,6 +5558,11 @@
                 "type": "uint256"
               },
               {
+                "internalType": "uint256",
+                "name": "totalAmount",
+                "type": "uint256"
+              },
+              {
                 "internalType": "uint64",
                 "name": "createdAt",
                 "type": "uint64"
@@ -5742,6 +5747,11 @@
                     "type": "uint256"
                   },
                   {
+                    "internalType": "uint256",
+                    "name": "totalAmount",
+                    "type": "uint256"
+                  },
+                  {
                     "internalType": "uint64",
                     "name": "createdAt",
                     "type": "uint64"
@@ -5785,6 +5795,11 @@
                   {
                     "internalType": "uint256",
                     "name": "amount",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "totalAmount",
                     "type": "uint256"
                   },
                   {

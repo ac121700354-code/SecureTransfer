@@ -249,8 +249,6 @@ export const translations = {
     feeNotice: "手续费：0.1% (最低 $0.01 封顶 $1.0)，从订单金额中扣除。",
     feePrefix: "预估手续费：≈",
     feeDeductedFromOrder: "从订单金额中扣除。",
-    originalAmount: "原始金额",
-    netAmount: "到账金额",
     minAmountError: "转账金额低于最小限额 ($1)",
     inboxTip: "您有一笔待收款订单，请尽快与付款方核对",
     confirmReleaseTitle: "确认放款？",
