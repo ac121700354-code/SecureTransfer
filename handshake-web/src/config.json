@@ -14,7 +14,7 @@
         "symbol": "HK",
         "name": "Handshk Token",
         "logo": "/logo.svg",
-        "address": "0x77A2941393679CdEB2214445d4751901B4524Ef7"
+        "address": "0x723864271b3D5938aBA5392625D1A907b100935E"
       },
       {
         "symbol": "USDT",
@@ -49,7 +49,7 @@
     ],
     "contracts": {
       "BufferToken": {
-        "address": "0x77A2941393679CdEB2214445d4751901B4524Ef7",
+        "address": "0x723864271b3D5938aBA5392625D1A907b100935E",
         "abi": [
           {
             "inputs": [
@@ -3522,7 +3522,7 @@
         ]
       },
       "ActivityRewards": {
-        "address": "0x739295ADC9C8DD32c6a8d8403436Ac1848268ED0",
+        "address": "0x245F6F084b956C6f8b0E5297Bfe45bCf5F40690B",
         "abi": [
           {
             "inputs": [
@@ -4279,7 +4279,7 @@
         "address": "0xd66c6B4F0be8CE5b39D52E0Fd1344c389929B378"
       },
       "FeeCollector": {
-        "address": "0x2e6C1FA9EeD21A049efB1BA8B82345258dD6a5a3",
+        "address": "0x99DeF8DF6073D0e53E9B56f7Ec9b09CF75Efc079",
         "abi": [
           {
             "inputs": [
@@ -5151,7 +5151,7 @@
         ]
       },
       "SecureHandshakeUnlimitedInbox": {
-        "address": "0x4DcC176B1BE60C51F582209b4F2541afDc84b917",
+        "address": "0x6C2C2bbBc04c91D774915DE8938070797aC1D77a",
         "abi": [
           {
             "inputs": [],
@@ -5356,6 +5356,12 @@
                 "indexed": false,
                 "internalType": "uint256",
                 "name": "amount",
+                "type": "uint256"
+              },
+              {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "totalAmount",
                 "type": "uint256"
               }
             ],
