@@ -145,7 +145,7 @@ export const WhitepaperContentZh = () => {
       <SectionTitle number="05" title="经济模型" />
       
       <h4 className="font-bold text-white mt-4 mb-2">协议服务费</h4>
-      <p className="mb-4">协议将对每笔成功完成的安全转账收取微量服务费：0.1%（最低 $0.01 封顶 $1.0），结算时扣除，用于：</p>
+      <p className="mb-4">协议将对每笔成功完成的安全转账收取微量服务费：0.01%（最低 $0.01 封顶 $1.0），结算时扣除，用于：</p>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 max-w-4xl mx-auto">
         {/* 50% Burn */}

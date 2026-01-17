@@ -84,6 +84,9 @@ contract SecureHandshakeUnlimitedInbox is
     
     // 预言机价格有效时长 (心跳)，默认 3 小时
     uint256 public oracleHeartbeat;
+    
+    // 收件箱限制 (20)
+    uint256 public maxPendingInbox;
 
     /**
      * @notice 获取用户指定日期的转账次数
@@ -139,6 +142,7 @@ contract SecureHandshakeUnlimitedInbox is
         maxPendingOutbox = 20; // 默认 20 条
         feeBps = 1; // 默认 0.01%
         oracleHeartbeat = 3 hours; // 默认心跳 3 小时
+        maxPendingInbox = 20; // 默认 20 条
     }
 
     // --- UUPS 升级安全保护 ---
@@ -184,8 +188,10 @@ contract SecureHandshakeUnlimitedInbox is
 
         // 4. 发件箱限制：防止单用户发起大量无效订单占用存储
         require(_outbox[msg.sender].length < maxPendingOutbox, "Your outbox is full");
+        // 5. 收件箱限制：防止收款人被垃圾订单淹没
+        require(_inbox[_receiver].length < maxPendingInbox, "Receiver inbox is full");
 
-        // 5. 计算并预扣手续费
+        // 6. 计算并预扣手续费
         uint256 fee = _calculateFee(_token, _amount);
         require(_amount > fee, "Amount not enough to pay fee");
         uint256 netAmount = _amount - fee;
@@ -542,6 +548,12 @@ contract SecureHandshakeUnlimitedInbox is
         maxPendingOutbox = _limit;
     }
 
+    // 设置最大待处理收件箱限制
+    function setMaxPendingInbox(uint256 _limit) external onlyOwner {
+        require(_limit > 0, "Limit must be > 0");
+        maxPendingInbox = _limit;
+    }
+
     // 设置基础费率 (基点: 10 = 0.1%)
     function setFeeBps(uint256 _bps) external onlyOwner {
         require(_bps <= 1000, "Fee too high"); // 最高不超过 10%
@@ -573,7 +585,7 @@ contract SecureHandshakeUnlimitedInbox is
     }
 
     /**
-     * @dev 保留 49 个存储槽，用于未来升级时防止存储冲突
+     * @dev 保留 48 个存储槽，用于未来升级时防止存储冲突
      */
-    uint256[49] private __gap;
+    uint256[48] private __gap;
 }

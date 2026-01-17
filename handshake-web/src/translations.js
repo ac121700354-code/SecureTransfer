@@ -95,7 +95,7 @@ export const translations = {
     cancelBtn: "Cancel Order",
     back: "Back",
     feeDescription: "Protocol fees: 90% Burned, 10% to DAO Treasury.",
-    feeNotice: "Protocol Fee: 0.1% (Min $0.01 Max $1.0), deducted from order amount.",
+    feeNotice: "Protocol Fee: 0.01% (Min $0.01 Max $1.0), deducted from order amount.",
     feePrefix: "Est. Fee: ≈",
     feeDeductedFromOrder: "deducted from order.",
     minAmountError: "Transfer amount below minimum limit ($1)",

@@ -21,8 +21,8 @@ const LanguageSwitcher = () => {
   const dropdownRef = useRef(null);
 
   const LANGUAGES = {
-    en: { name: 'English', flag: '🇺🇸' },
-    zh: { name: '简体中文', flag: '🇨🇳' }
+    en: { name: 'English' },
+    zh: { name: '普通话' }
   };
 
   useEffect(() => {
@@ -42,16 +42,20 @@ const LanguageSwitcher = () => {
     <div className="relative language-switcher" ref={dropdownRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 p-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-bold transition-all"
+        className="flex items-center justify-center p-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all border border-white/5"
         title="Switch Language"
       >
-        <span className="text-sm">{LANGUAGES[lang].flag}</span>
-        <FaChevronDown size={10} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        <FaGlobe size={18} />
+        <FaChevronDown size={10} className={`ml-1 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 w-32 bg-slate-800 border border-white/10 rounded-xl shadow-xl overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+        <div className="absolute top-full right-0 mt-2 w-40 bg-[#0f121a] border border-white/10 rounded-xl shadow-xl overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-200 origin-top-right">
            <div className="py-1">
+             <div className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 flex items-center justify-between">
+               <span>Language</span>
+               <FaGlobe size={12} />
+             </div>
              {Object.keys(LANGUAGES).map((code) => {
                 const isActive = code === lang;
                 return (
@@ -61,12 +65,12 @@ const LanguageSwitcher = () => {
                       setLang(code);
                       setIsOpen(false);
                     }}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors
-                      ${isActive ? 'bg-blue-500/10 text-blue-400' : 'text-slate-300 hover:bg-white/5'}
+                    className={`w-full flex items-center justify-between px-4 py-3 text-sm transition-colors
+                      ${isActive ? 'text-blue-400 bg-blue-500/5' : 'text-slate-300 hover:bg-white/5'}
                     `}
                   >
-                    <span className="text-lg">{LANGUAGES[code].flag}</span>
                     <span className="font-medium">{LANGUAGES[code].name}</span>
+                    {isActive && <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.6)]"></div>}
                   </button>
                 );
              })}
