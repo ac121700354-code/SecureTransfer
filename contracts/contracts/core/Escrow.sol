@@ -54,9 +54,9 @@ contract SecureHandshakeUnlimitedInbox is
     // uint256 public constant FEE_BPS = 10;            // 移除常量定义，改为可配置变量
     // uint256 public constant MAX_PENDING_OUTBOX = 20; // 移除常量定义，改为可配置变量
     uint256 public constant USD_UNIT = 1e18;         // 美元单位精度 (1e18 = $1)
-    uint256 public constant USD_MIN_FEE = 1e16;      // 最低收费 $0.01
-    uint256 public constant USD_MAX_FEE = 1e18;      // 最高收费封顶 $1.0
-    uint256 public constant USD_MIN_THRESHOLD = 1e18;// 最小转账门槛 $1.0
+    // uint256 public constant USD_MIN_FEE = 1e16;      // 最低收费 $0.01 (Moved to storage)
+    // uint256 public constant USD_MAX_FEE = 1e18;      // 最高收费封顶 $1.0 (Moved to storage)
+    // uint256 public constant USD_MIN_THRESHOLD = 1e18;// 最小转账门槛 $1.0 (Moved to storage)
     uint256 private _nonce;                          // 内部计数器，增强 ID 随机性
 
     address public treasury; // 协议财库地址，用于接收手续费
@@ -89,6 +89,15 @@ contract SecureHandshakeUnlimitedInbox is
     
     // 收件箱限制 (20)
     uint256 public maxPendingInbox;
+
+    // 最小转账门槛 (Default $1.0)
+    uint256 public usdMinThreshold;
+
+    // 最低收费 (Default $0.01)
+    uint256 public usdMinFee;
+
+    // 最高收费封顶 (Default $1.0)
+    uint256 public usdMaxFee;
 
     // 自定义错误定义
     error InvalidTreasuryAddress();
@@ -172,6 +181,9 @@ contract SecureHandshakeUnlimitedInbox is
         maxPendingOutbox = 20; // 默认 20 条
         feeBps = 1; // 默认 0.01%
         maxPendingInbox = 20; // 默认 20 条
+        usdMinThreshold = 1e18; // 默认 $1.0
+        usdMinFee = 1e16; // 默认 $0.01
+        usdMaxFee = 1e18; // 默认 $1.0
     }
 
     // --- UUPS 升级安全保护 ---
@@ -214,7 +226,7 @@ contract SecureHandshakeUnlimitedInbox is
         if (_receiver == address(0)) revert InvalidReceiver();
 
         // 3. 门槛检查：计算美元价值，防止粉尘攻击
-        uint256 minAmount = _toTokenAmountForUsd(_token, USD_MIN_THRESHOLD);
+        uint256 minAmount = _toTokenAmountForUsd(_token, usdMinThreshold);
         if (_amount < minAmount) revert TransferAmountTooLow(_amount, minAmount);
 
         // 4. 发件箱限制：防止单用户发起大量无效订单占用存储
@@ -490,8 +502,8 @@ contract SecureHandshakeUnlimitedInbox is
         uint256 pFee = Math.mulDiv(_amount, feeBps, 10000);
         
         // 2. 计算动态的最低和最高费用（Token 数量）
-        uint256 minFee = _toTokenAmountForUsd(_token, USD_MIN_FEE);
-        uint256 maxFee = _toTokenAmountForUsd(_token, USD_MAX_FEE);
+        uint256 minFee = _toTokenAmountForUsd(_token, usdMinFee);
+        uint256 maxFee = _toTokenAmountForUsd(_token, usdMaxFee);
 
         // 3. 区间限制
         if (pFee < minFee) {
@@ -613,6 +625,21 @@ contract SecureHandshakeUnlimitedInbox is
         tokenHeartbeats[_token] = _seconds;
     }
 
+    // 设置最小转账门槛 (USD)
+    function setUsdMinThreshold(uint256 _amount) external onlyOwner {
+        usdMinThreshold = _amount;
+    }
+
+    // 设置最低收费 (USD)
+    function setUsdMinFee(uint256 _amount) external onlyOwner {
+        usdMinFee = _amount;
+    }
+
+    // 设置最高收费封顶 (USD)
+    function setUsdMaxFee(uint256 _amount) external onlyOwner {
+        usdMaxFee = _amount;
+    }
+
     // 管理员批量强制清理过期订单
     // @param _ids 要检查的订单ID列表 (由于链上无法遍历所有订单，需由管理员链下筛选后传入)
     function forceExpireBatch(bytes32[] calldata _ids) external onlyOwner {
@@ -632,7 +659,7 @@ contract SecureHandshakeUnlimitedInbox is
     }
 
     /**
-     * @dev 保留 48 个存储槽，用于未来升级时防止存储冲突
+     * @dev 保留 45 个存储槽，用于未来升级时防止存储冲突
      */
-    uint256[48] private __gap;
+    uint256[45] private __gap;
 }
