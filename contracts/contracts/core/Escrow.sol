@@ -84,7 +84,7 @@ contract SecureHandshakeUnlimitedInbox is
     mapping(address => UserStats) private _userStats;
     
     // 默认心跳时间 (24小时)
-    uint256 public constant DEFAULT_HEARTBEAT = 24 hours;
+    // uint256 public constant DEFAULT_HEARTBEAT = 24 hours; // Moved to storage
     mapping(address => uint256) public tokenHeartbeats;
     
     // 收件箱限制 (20)
@@ -98,6 +98,9 @@ contract SecureHandshakeUnlimitedInbox is
 
     // 最高收费封顶 (Default $1.0)
     uint256 public usdMaxFee;
+
+    // 默认心跳时间 (Default 24 hours)
+    uint256 public defaultHeartbeat;
 
     // 自定义错误定义
     error InvalidTreasuryAddress();
@@ -184,6 +187,7 @@ contract SecureHandshakeUnlimitedInbox is
         usdMinThreshold = 1e18; // 默认 $1.0
         usdMinFee = 1e16; // 默认 $0.01
         usdMaxFee = 1e18; // 默认 $1.0
+        defaultHeartbeat = 24 hours; // 默认 24小时
     }
 
     // --- UUPS 升级安全保护 ---
@@ -405,7 +409,7 @@ contract SecureHandshakeUnlimitedInbox is
         // 获取心跳时间配置：优先使用 Token 单独配置，否则使用默认值
         uint256 heartbeat = tokenHeartbeats[_token];
         if (heartbeat == 0) {
-            heartbeat = DEFAULT_HEARTBEAT;
+            heartbeat = defaultHeartbeat;
         }
         
         if (block.timestamp - updatedAt >= heartbeat) revert OraclePriceExpired();
@@ -640,6 +644,11 @@ contract SecureHandshakeUnlimitedInbox is
         usdMaxFee = _amount;
     }
 
+    // 设置默认心跳时间
+    function setDefaultHeartbeat(uint256 _seconds) external onlyOwner {
+        defaultHeartbeat = _seconds;
+    }
+
     // 管理员批量强制清理过期订单
     // @param _ids 要检查的订单ID列表 (由于链上无法遍历所有订单，需由管理员链下筛选后传入)
     function forceExpireBatch(bytes32[] calldata _ids) external onlyOwner {
@@ -659,7 +668,7 @@ contract SecureHandshakeUnlimitedInbox is
     }
 
     /**
-     * @dev 保留 45 个存储槽，用于未来升级时防止存储冲突
+     * @dev 保留 44 个存储槽，用于未来升级时防止存储冲突
      */
-    uint256[45] private __gap;
+    uint256[44] private __gap;
 }
