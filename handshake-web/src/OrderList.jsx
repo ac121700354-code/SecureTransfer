@@ -116,7 +116,7 @@ const OrderCard = ({ order, isOut, onAction, processingState, contracts, tokensC
   );
 };
 
-export default function OrderList({ account, provider: walletProvider, refreshTrigger, onActionSuccess, onStatsUpdate, activeConfig, chainId }) {
+export default function OrderList({ account, provider: walletProvider, refreshSignal, onActionSuccess, onStatsUpdate, activeConfig, chainId }) {
   const toast = useToast();
   const { t } = useLanguage();
   
@@ -212,14 +212,14 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
 
   // 2. 收到刷新信号时：静默更新（绝不显示 Loading）
   useEffect(() => {
-    if (!refreshTrigger) return;
+    if (!refreshSignal) return;
 
-    // 如果 refreshTrigger 是对象，说明有新订单，手动添加到列表（本地乐观更新）
-    if (typeof refreshTrigger === 'object') {
+    // 如果 refreshSignal 是对象，说明有新订单，手动添加到列表（本地乐观更新）
+    if (typeof refreshSignal === 'object') {
         // 直接添加到 Outbox
         setOutbox(prev => {
-            if (prev.some(o => o.id === refreshTrigger.id)) return prev;
-            return [refreshTrigger, ...prev];
+            if (prev.some(o => o.id === refreshSignal.id)) return prev;
+            return [refreshSignal, ...prev];
         });
     } else {
         // 数字信号：静默拉取
@@ -228,7 +228,7 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
           fetchOrders(); 
         }
     }
-  }, [refreshTrigger, fetchOrders, contracts]);
+  }, [refreshSignal, fetchOrders, contracts]);
 
   // 监听 activeConfig 变化（网络切换），强制显示 Loading
   useEffect(() => {
@@ -302,8 +302,7 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
           return newState;
       });
 
-      // if (onActionSuccess) onActionSuccess(); // Disable auto-refresh to prevent race conditions with RPC latency
-
+      if (onActionSuccess) onActionSuccess(); 
 
     } catch (err) {
       console.error("Action error:", err);

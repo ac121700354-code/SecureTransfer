@@ -322,23 +322,32 @@ function AppContent() {
   const [activeConfig, setActiveConfig] = useState(config[getSavedChainId()] || config[97]);
 
   const [isInitializing, setIsInitializing] = useState(true);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  // Split refresh triggers for better control
+  const [balanceTrigger, setBalanceTrigger] = useState(0);
+  const [ordersTrigger, setOrdersTrigger] = useState(0);
+  
   const [activeCount, setActiveCount] = useState(0);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isWhitepaperOpen, setIsWhitepaperOpen] = useState(false);
   const [walletProvider, setWalletProvider] = useState(window.ethereum);
   const [isConnecting, setIsConnecting] = useState(false);
 
+  // Helper to refresh everything
+  const refreshAll = useCallback(() => {
+      setBalanceTrigger(prev => prev + 1);
+      setOrdersTrigger(prev => (typeof prev === 'number' ? prev + 1 : 1));
+  }, []);
+
   // Global Auto-Refresh Timer (60s)
   useEffect(() => {
     const interval = setInterval(() => {
       // Only refresh if user is connected
       if (account) {
-        setRefreshTrigger(prev => (typeof prev === 'number' ? prev + 1 : 1));
+        refreshAll();
       }
     }, 60000);
     return () => clearInterval(interval);
-  }, [account]);
+  }, [account, refreshAll]);
 
   const handleConnect = useCallback(async (providerObj, walletName) => {
     localStorage.removeItem('isManualDisconnect');
@@ -365,7 +374,7 @@ function AppContent() {
       
       if (accounts && accounts.length > 0) {
         setAccount(accounts[0]);
-        setRefreshTrigger(prev => prev + 1);
+        refreshAll();
         
         // Note: We DO NOT sync chainId here anymore. User selection is master.
       }
@@ -378,7 +387,7 @@ function AppContent() {
     } finally {
       setIsConnecting(false);
     }
-  }, [walletProvider]);
+  }, [walletProvider, refreshAll]);
 
   const handleDisconnect = () => {
     localStorage.setItem('isManualDisconnect', 'true');
@@ -392,7 +401,7 @@ function AppContent() {
     setChainId(id);
     setActiveConfig(config[id]);
     localStorage.setItem('lastChainId', id);
-    setRefreshTrigger(prev => (typeof prev === 'number' ? prev + 1 : 1));
+    refreshAll();
   };
 
   useEffect(() => {
@@ -402,7 +411,7 @@ function AppContent() {
     const handleAccountsChanged = (accounts) => {
         if (accounts.length > 0) {
             setAccount(accounts[0]);
-            setRefreshTrigger(prev => (typeof prev === 'number' ? prev + 1 : 1));
+            refreshAll();
         } else {
             setAccount("");
         }
@@ -411,7 +420,7 @@ function AppContent() {
     const handleChainChanged = (chainIdHex) => {
         const id = parseInt(chainIdHex, 16);
         console.log("Wallet Chain Changed (Ignored by UI):", id);
-        setRefreshTrigger(prev => (typeof prev === 'number' ? prev + 1 : 1));
+        refreshAll();
     };
 
     if (walletProvider.on) {
@@ -425,7 +434,7 @@ function AppContent() {
             walletProvider.removeListener('chainChanged', handleChainChanged);
         }
     };
-  }, [walletProvider]);
+  }, [walletProvider, refreshAll]);
 
   useEffect(() => {
     // Flag to synchronize between EIP-6963 and initAuth fallback
@@ -571,7 +580,14 @@ function AppContent() {
   }, []); // Run once on mount
 
   const onTransactionSuccess = (order) => {
-    setRefreshTrigger(order || (prev => (typeof prev === 'number' ? prev + 1 : 1)));
+    // Initiate Transfer Success: New order created -> Update list AND balance
+    setOrdersTrigger(order || (prev => (typeof prev === 'number' ? prev + 1 : 1)));
+    setBalanceTrigger(prev => prev + 1);
+  };
+
+  const onOrderActionSuccess = () => {
+    // OrderList Action (Cancel/Confirm) Success: List already updated locally -> Only update balance
+    setBalanceTrigger(prev => prev + 1);
   };
 
   return (
@@ -631,11 +647,11 @@ function AppContent() {
                         account={account} 
                         provider={walletProvider} 
                         onTransactionSuccess={onTransactionSuccess} 
-                        refreshBalanceTrigger={refreshTrigger}
+                        refreshBalanceTrigger={balanceTrigger}
                         activeCount={activeCount}
                         chainId={chainId}
                         activeConfig={activeConfig}
-                        onRewardClaimed={() => setRefreshTrigger(prev => (typeof prev === 'number' ? prev + 1 : 1))}
+                        onRewardClaimed={() => setBalanceTrigger(prev => prev + 1)}
                       />
                     </ErrorBoundary>
               </div>
@@ -648,8 +664,8 @@ function AppContent() {
                         key={account} 
                         account={account} 
                         provider={walletProvider}
-                        refreshTrigger={refreshTrigger} 
-                        onActionSuccess={() => setRefreshTrigger(prev => (typeof prev === 'number' ? prev + 1 : 1))}
+                        refreshSignal={ordersTrigger} 
+                        onActionSuccess={onOrderActionSuccess}
                         onStatsUpdate={setActiveCount}
                         activeConfig={activeConfig}
                         chainId={chainId}
