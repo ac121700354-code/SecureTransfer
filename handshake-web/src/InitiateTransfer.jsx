@@ -395,10 +395,10 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
 
         // 1. 检查并授权
         const tokenContract = new ethers.Contract(tokenAddress, contracts.BufferToken.abi, signer);
-        const allowance = await tokenContract.allowance(account, contracts.EscrowProxy.address);
+        const allowance = await tokenContract.allowance(account, escrowAddress);
         if (allowance < weiAmount) {
           // 如果授权不足，请求授权
-          const approveTx = await tokenContract.approve(contracts.EscrowProxy.address, ethers.MaxUint256);
+          const approveTx = await tokenContract.approve(escrowAddress, ethers.MaxUint256);
           await approveTx.wait();
         }
       } else {
