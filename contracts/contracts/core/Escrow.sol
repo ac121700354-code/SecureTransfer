@@ -648,7 +648,7 @@ contract SecureHandshakeUnlimitedInbox is
             TransferRecord memory t = activeTransfers[id];
             
             // 跳过无效或已处理的记录
-            if (t.receiver == address(0)) continue;
+            if (t.receiver == address(0) || t.sender == address(0)) continue;
 
             _fullCleanup(t.sender, t.receiver, id);
             
