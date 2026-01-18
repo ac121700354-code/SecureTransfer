@@ -129,9 +129,9 @@ export const WhitepaperContentZh = () => {
       <SectionTitle number="04" title="应用场景" />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-            { title: "大额 OTC 交易", desc: "陌生人之间的点对点大额交易，无需信任第三方担保。" },
-            { title: "企业薪资发放", desc: "防止财务发错地址，提供二次确认机会。" },
-            { title: "防误操作保护", desc: "为日常转账多加一层“撤回”保险，安心无忧。" }
+            { title: "防误操作保护", desc: "担心输错地址？提供“后悔药”机制，发现错误随时撤回，资金零风险。" },
+            { title: "防诈骗地址", desc: "遭遇“首尾号相同”骗局？资金锁定需对方确认，让骗子无法自动收款，从容识破。" },
+            { title: "交易所高级转账", desc: "为交易所/钱包提供“安全转账”增值服务，支持转账撤回与状态追踪，提升用户安全感。" }
         ].map((item, i) => (
             <div key={i} className="bg-slate-800/30 p-5 rounded-xl border border-white/5 hover:bg-slate-800/60 hover:border-blue-500/20 transition-all cursor-default">
                 <h4 className="font-bold text-slate-200 mb-1">{item.title}</h4>
@@ -305,9 +305,9 @@ export const WhitepaperContentEn = () => {
       <SectionTitle number="04" title="Use Cases" />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-            { title: "Large OTC Trades", desc: "P2P large transfers between strangers without trusted third parties." },
-            { title: "Payroll", desc: "Prevent sending salaries to wrong addresses with a second confirmation." },
-            { title: "Anti-Error Protection", desc: "An extra 'Undo' layer for daily transfers." }
+            { title: "Anti-Mistake Protection", desc: "Worried about typos? Cancel anytime if you spot an error. A true \"undo\" button for crypto transfers." },
+            { title: "Anti-Scam Defense", desc: "Targeted by \"address poisoning\"? Funds stay locked until verified, preventing scammers from silently collecting your assets." },
+            { title: "Exchange Advanced Features", desc: "A premium \"Secure Transfer\" layer for exchanges & wallets. Offer users reversible transfers to boost retention and trust." }
         ].map((item, i) => (
             <div key={i} className="bg-slate-800/30 p-5 rounded-xl border border-white/5 hover:bg-slate-800/60 hover:border-blue-500/20 transition-all cursor-default">
                 <h4 className="font-bold text-slate-200 mb-1">{item.title}</h4>

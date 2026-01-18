@@ -93,7 +93,7 @@ const TokenSelectorModal = ({ isOpen, onClose, onSelect, tokens, balances, price
                     {/* Balance & Value */}
                     <div className="text-right">
                        <div className={`text-sm font-mono ${balance > 0 ? 'text-slate-200' : 'text-slate-600'}`}>
-                           {balance > 0 ? balance.toFixed(4) : "0"}
+                           {balance > 0 ? balance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 8 }) : "0"}
                        </div>
                        {usdValue > 0 && (
                            <div className="text-xs text-slate-500">

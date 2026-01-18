@@ -74,7 +74,7 @@ contract SecureHandshakeUnlimitedInbox is
     address public constant NATIVE_TOKEN = address(0); // 原生代币标识地址
 
     uint256 public maxPendingOutbox; // 限制付款方：防止单地址滥用合约占用存储
-    uint256 public feeBps; // 基础费率 (基点: 10 = 0.1%)
+    uint256 public feeBps; // 基础费率 (基点: 1 = 0.01%)
 
     struct UserStats {
         uint32 lastDay;
@@ -83,11 +83,40 @@ contract SecureHandshakeUnlimitedInbox is
     }
     mapping(address => UserStats) private _userStats;
     
-    // 预言机价格有效时长 (心跳)，默认 3 小时
-    uint256 public oracleHeartbeat;
+    // 默认心跳时间 (24小时)
+    uint256 public constant DEFAULT_HEARTBEAT = 24 hours;
+    mapping(address => uint256) public tokenHeartbeats;
     
     // 收件箱限制 (20)
     uint256 public maxPendingInbox;
+
+    // 自定义错误定义
+    error InvalidTreasuryAddress();
+    error IncorrectNativeValue(uint256 expected, uint256 actual);
+    error NativeValueSentForERC20();
+    error TokenNotWhitelisted(address token);
+    error InvalidReceiver();
+    error TransferAmountTooLow(uint256 amount, uint256 minAmount);
+    error OutboxFull(uint256 limit);
+    error InboxFull(uint256 limit);
+    error AmountInsufficientForFee(uint256 amount, uint256 fee);
+    error FeeTransferFailed();
+    error PermitNotForNativeToken();
+    error PermitExpired(uint256 deadline);
+    error PermitFailed();
+    error UnauthorizedSender();
+    error RecordNotFound();
+    error NativeTransferFailed();
+    error PriceFeedNotSet();
+    error OraclePriceInvalid();
+    error OracleRoundNotComplete();
+    error OraclePriceStale();
+    error OraclePriceExpired();
+    error InvalidFeedAddress();
+    error InvalidAddress();
+    error InvalidLimit();
+    error FeeTooHigh(uint256 bps);
+    error InvalidHeartbeat();
 
     /**
      * @notice 获取用户指定日期的转账次数
@@ -138,11 +167,10 @@ contract SecureHandshakeUnlimitedInbox is
         __Pausable_init();
         __UUPSUpgradeable_init();
 
-        require(_treasury != address(0), "Treasury address zero");
+        if (_treasury == address(0)) revert InvalidTreasuryAddress();
         treasury = _treasury;
         maxPendingOutbox = 20; // 默认 20 条
         feeBps = 1; // 默认 0.01%
-        oracleHeartbeat = 3 hours; // 默认心跳 3 小时
         maxPendingInbox = 20; // 默认 20 条
     }
 
@@ -164,10 +192,10 @@ contract SecureHandshakeUnlimitedInbox is
     function initiate(address _token, address _receiver, uint256 _amount) public payable nonReentrant whenNotPaused returns (bytes32) {
         // 校验：如果是原生代币，附带的 msg.value 必须等于声明的 amount
         if (_token == NATIVE_TOKEN) {
-            require(msg.value == _amount, "Incorrect value");
+            if (msg.value != _amount) revert IncorrectNativeValue(_amount, msg.value);
         } else {
             // 如果是 ERC20，附带的 msg.value 必须为 0
-            require(msg.value == 0, "Native value sent for ERC20");
+            if (msg.value != 0) revert NativeValueSentForERC20();
         }
         // 调用内部逻辑处理
         return _initiateInternal(_token, _receiver, _amount, _token == NATIVE_TOKEN);
@@ -179,22 +207,24 @@ contract SecureHandshakeUnlimitedInbox is
      */
     function _initiateInternal(address _token, address _receiver, uint256 _amount, bool isNative) internal returns (bytes32) {
         // 1. 校验 Token 是否在白名单（配置了预言机）
-        require(tokenPriceFeeds[_token] != address(0), "Token not whitelisted");
-        // 2. 校验接收方合法性（不能是零地址，不能是自己）
-        require(_receiver != address(0) && _receiver != msg.sender, "Invalid receiver");
+        if (tokenPriceFeeds[_token] == address(0)) {
+            revert TokenNotWhitelisted(_token);
+        }
+        // 2. 校验接收方合法性（不能是零地址）
+        if (_receiver == address(0)) revert InvalidReceiver();
 
         // 3. 门槛检查：计算美元价值，防止粉尘攻击
         uint256 minAmount = _toTokenAmountForUsd(_token, USD_MIN_THRESHOLD);
-        require(_amount >= minAmount, "Transfer amount below $1 minimum");
+        if (_amount < minAmount) revert TransferAmountTooLow(_amount, minAmount);
 
         // 4. 发件箱限制：防止单用户发起大量无效订单占用存储
-        require(_outbox[msg.sender].length < maxPendingOutbox, "Your outbox is full");
+        if (_outbox[msg.sender].length >= maxPendingOutbox) revert OutboxFull(maxPendingOutbox);
         // 5. 收件箱限制：防止收款人被垃圾订单淹没
-        require(_inbox[_receiver].length < maxPendingInbox, "Receiver inbox is full");
+        if (_inbox[_receiver].length >= maxPendingInbox) revert InboxFull(maxPendingInbox);
 
         // 6. 计算并预扣手续费
         uint256 fee = _calculateFee(_token, _amount);
-        require(_amount > fee, "Amount not enough to pay fee");
+        if (_amount <= fee) revert AmountInsufficientForFee(_amount, fee);
         uint256 netAmount = _amount - fee;
 
         // 6. 生成唯一交易 ID (Hash: sender + receiver + timestamp + nonce + prevrandao)
@@ -228,7 +258,7 @@ contract SecureHandshakeUnlimitedInbox is
             // Native: 已经在 initiate 中通过 payable 接收
             // 支付手续费给财库
             (bool success, ) = treasury.call{value: fee}("");
-            require(success, "Fee transfer failed");
+            if (!success) revert FeeTransferFailed();
         }
 
         // 9. 写入存储记录 (存储净额)
@@ -263,14 +293,14 @@ contract SecureHandshakeUnlimitedInbox is
         bytes32 _r,
         bytes32 _s
     ) external returns (bytes32) {
-        require(_token != NATIVE_TOKEN, "Permit not for native token");
-        require(block.timestamp <= _deadline, "Permit expired");
+        if (_token == NATIVE_TOKEN) revert PermitNotForNativeToken();
+        if (block.timestamp > _deadline) revert PermitExpired(_deadline);
         // 尝试调用 Token 的 permit 函数
         try IERC20Permit(_token).permit(msg.sender, address(this), _amount, _deadline, _v, _r, _s) {
             // 签名验证通过，授权成功
         } catch {
             // 如果 permit 失败或不支持，回滚交易
-            revert("Permit failed");
+            revert PermitFailed();
         }
         // 授权成功后，直接调用 initiate 发起转账
         return initiate(_token, _receiver, _amount);
@@ -286,11 +316,9 @@ contract SecureHandshakeUnlimitedInbox is
     function confirm(bytes32 _id) external nonReentrant whenNotPaused {
         TransferRecord memory t = activeTransfers[_id];
         // 1. 权限检查：必须是发起人
-        require(msg.sender == t.sender, "Only sender can authorize");
+        if (msg.sender != t.sender) revert UnauthorizedSender();
         // 2. 状态检查：订单是否存在
-        require(t.receiver != address(0), "Record not found");
-        // 3. 有效期检查：订单是否已过期 - REMOVED
-        // require(block.timestamp <= t.expiresAt, "Record expired");
+        if (t.receiver == address(0)) revert RecordNotFound();
 
         // 4. 状态清理：从映射和数组中完全移除，释放存储 Gas
         _fullCleanup(t.sender, t.receiver, _id);
@@ -298,7 +326,7 @@ contract SecureHandshakeUnlimitedInbox is
         // 5. 资金分发 (直接全额转账，因手续费已在 initiate 时扣除)
         if (t.token == NATIVE_TOKEN) {
             (bool success, ) = t.receiver.call{value: t.amount}("");
-            require(success, "Native transfer failed");
+            if (!success) revert NativeTransferFailed();
         } else {
             IERC20(t.token).safeTransfer(t.receiver, t.amount);
         }
@@ -313,9 +341,9 @@ contract SecureHandshakeUnlimitedInbox is
     function cancel(bytes32 _id) external nonReentrant {
         TransferRecord memory t = activeTransfers[_id];
         // 1. 权限检查
-        require(msg.sender == t.sender, "Only sender can cancel");
+        if (msg.sender != t.sender) revert UnauthorizedSender();
         // 2. 存在性检查
-        require(t.receiver != address(0), "Record not found");
+        if (t.receiver == address(0)) revert RecordNotFound();
 
         // 3. 状态清理
         _fullCleanup(t.sender, t.receiver, _id);
@@ -353,15 +381,22 @@ contract SecureHandshakeUnlimitedInbox is
      */
     function _toTokenAmountForUsd(address _token, uint256 usdAmount) internal view returns (uint256) {
         address feed = tokenPriceFeeds[_token];
-        require(feed != address(0), "Price feed not set");
+        if (feed == address(0)) revert PriceFeedNotSet();
         
         // 获取预言机价格
         AggregatorV3Interface priceFeed = AggregatorV3Interface(feed);
         (uint80 roundId, int256 price, , uint256 updatedAt, uint80 answeredInRound) = priceFeed.latestRoundData();
-        require(price > 0, "Invalid price");
-        require(updatedAt > 0, "Round not complete");
-        require(answeredInRound >= roundId, "Stale price");
-        require(block.timestamp - updatedAt < oracleHeartbeat, "Price expired"); 
+        if (price <= 0) revert OraclePriceInvalid();
+        if (updatedAt == 0) revert OracleRoundNotComplete();
+        if (answeredInRound < roundId) revert OraclePriceStale();
+        
+        // 获取心跳时间配置：优先使用 Token 单独配置，否则使用默认值
+        uint256 heartbeat = tokenHeartbeats[_token];
+        if (heartbeat == 0) {
+            heartbeat = DEFAULT_HEARTBEAT;
+        }
+        
+        if (block.timestamp - updatedAt >= heartbeat) revert OraclePriceExpired();
 
         // 价格偏差检查 (Anti-Flashloan Manipulation)
         // 注意：由于 view 函数无法更新 lastGoodPrice，这里只能做检查。
@@ -385,8 +420,8 @@ contract SecureHandshakeUnlimitedInbox is
     // 彻底清理存储：删除 mapping 记录并从收发件箱数组中移除
     function _fullCleanup(address _sender, address _receiver, bytes32 _id) internal {
         delete activeTransfers[_id]; // 删除详情
-        delete _inboxIndex[_id];     // 删除索引
-        delete _outboxIndex[_id];    // 删除索引
+        // 注意：不要在这里 delete _inboxIndex 或 _outboxIndex
+        // 因为 _removeFrom... 函数需要读取索引来定位元素，且它们内部会在最后删除索引。
         _removeFromOutbox(_sender, _id); // O(1) 移除发件箱索引
         _removeFromInbox(_receiver, _id); // O(1) 移除收件箱索引
     }
@@ -406,7 +441,12 @@ contract SecureHandshakeUnlimitedInbox is
 
     function _removeFromInbox(address _receiver, bytes32 _id) internal {
         bytes32[] storage list = _inbox[_receiver];
+        if (list.length == 0) return;
+        
         uint256 index = _inboxIndex[_id];
+        // Safety check: ensure the ID at the index matches
+        if (list[index] != _id) return; // Should revert or handle error, but safe return prevents corruption
+
         uint256 lastIndex = list.length - 1;
 
         if (index != lastIndex) {
@@ -421,7 +461,12 @@ contract SecureHandshakeUnlimitedInbox is
 
     function _removeFromOutbox(address _sender, bytes32 _id) internal {
         bytes32[] storage list = _outbox[_sender];
+        if (list.length == 0) return;
+
         uint256 index = _outboxIndex[_id];
+        // Safety check: ensure the ID at the index matches
+        if (list[index] != _id) return;
+
         uint256 lastIndex = list.length - 1;
 
         if (index != lastIndex) {
@@ -533,39 +578,39 @@ contract SecureHandshakeUnlimitedInbox is
     // --- 管理接口 ---
 
     // 设置 Token 对应的 Chainlink 预言机地址
+    // @param _feed 预言机地址。传入 address(0) 表示下架该代币（删除配置）。
     function setTokenPriceFeed(address _token, address _feed) external onlyOwner {
-        require(_feed != address(0), "Invalid feed address");
         tokenPriceFeeds[_token] = _feed;
     }
 
     // 设置财库收款地址
     function setTreasury(address _newTreasury) external onlyOwner {
-        require(_newTreasury != address(0), "Invalid address");
+        if (_newTreasury == address(0)) revert InvalidAddress();
         treasury = _newTreasury;
     }
 
     // 设置最大待处理发件箱限制
     function setMaxPendingOutbox(uint256 _limit) external onlyOwner {
-        require(_limit > 0, "Limit must be > 0");
+        if (_limit == 0) revert InvalidLimit();
         maxPendingOutbox = _limit;
     }
 
     // 设置最大待处理收件箱限制
     function setMaxPendingInbox(uint256 _limit) external onlyOwner {
-        require(_limit > 0, "Limit must be > 0");
+        if (_limit == 0) revert InvalidLimit();
         maxPendingInbox = _limit;
     }
 
     // 设置基础费率 (基点: 10 = 0.1%)
     function setFeeBps(uint256 _bps) external onlyOwner {
-        require(_bps <= 1000, "Fee too high"); // 最高不超过 10%
+        if (_bps > 1000) revert FeeTooHigh(_bps); // 最高不超过 10%
         feeBps = _bps;
     }
 
-    // 设置预言机心跳时间
-    function setOracleHeartbeat(uint256 _seconds) external onlyOwner {
-        require(_seconds > 0, "Invalid heartbeat");
-        oracleHeartbeat = _seconds;
+    // 设置 Token 的预言机心跳时间
+    // @param _seconds 心跳秒数。传入 0 表示删除单独配置，恢复使用默认值。
+    function setTokenHeartbeat(address _token, uint256 _seconds) external onlyOwner {
+        tokenHeartbeats[_token] = _seconds;
     }
 
     // 管理员批量强制清理过期订单

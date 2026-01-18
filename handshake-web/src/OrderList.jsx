@@ -296,9 +296,14 @@ export default function OrderList({ account, provider: walletProvider, refreshTr
 
       // 乐观更新
       setInbox(prev => prev.filter(item => item.id !== id));
-      setOutbox(prev => prev.filter(item => item.id !== id));
+      setOutbox(prev => {
+          const newState = prev.filter(item => item.id !== id);
+          if (onStatsUpdate) onStatsUpdate(newState.length);
+          return newState;
+      });
 
-      if (onActionSuccess) onActionSuccess();
+      // if (onActionSuccess) onActionSuccess(); // Disable auto-refresh to prevent race conditions with RPC latency
+
 
     } catch (err) {
       console.error("Action error:", err);

@@ -3,6 +3,11 @@
     "networkName": "bnb_testnet",
     "rpcUrl": "https://data-seed-prebsc-1-s1.binance.org:8545/",
     "explorer": "",
+    "nativeCurrency": {
+      "name": "Binance Coin",
+      "symbol": "tBNB",
+      "decimals": 18
+    },
     "tokens": [
       {
         "symbol": "BNB",
@@ -5151,7 +5156,7 @@
         ]
       },
       "SecureHandshakeUnlimitedInbox": {
-        "address": "0xC86601AFf56c2c5591894404b6Cb88b8938d3F54",
+      "address": "0x17a5Be666d3a8F95815910D469ef16a861a56bE4",
         "abi": [
           {
             "inputs": [],

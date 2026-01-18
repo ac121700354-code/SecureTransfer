@@ -127,7 +127,8 @@ const NetworkSwitcher = ({ provider, currentChainId, onNetworkChange }) => {
                   chainId: `0x${targetChainId.toString(16)}`,
                   chainName: targetConfig.networkName,
                   rpcUrls: [targetConfig.rpcUrl],
-                  blockExplorerUrls: [targetConfig.explorer]
+                  blockExplorerUrls: [targetConfig.explorer],
+                  nativeCurrency: targetConfig.nativeCurrency
                 },
               ],
             });
@@ -697,9 +698,12 @@ function AppContent() {
                 <SiGithub size={16} />
               </a>
             </div>
-            <p className="text-[10px] text-slate-600">
+            <button 
+              onClick={() => setIsWhitepaperOpen(true)}
+              className="text-[10px] text-slate-600 hover:text-blue-400 transition-colors"
+            >
               Handshk Protocol © 2025
-            </p>
+            </button>
           </footer>
 
           <WalletModal 

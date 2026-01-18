@@ -293,9 +293,11 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
 
   // --- 表单验证逻辑 ---
   const isAddressValid = ethers.isAddress(receiver);
+  // const isSelfTransfer = account && receiver && (receiver.toLowerCase() === account.toLowerCase()); // Check self transfer
   const isTokenAddressValid = selectedToken.address || ethers.isAddress(customTokenAddress);
   const isAmountValid = amount && !isNaN(amount) && parseFloat(amount) > 0;
-  const canProceed = isAddressValid && isAmountValid && isTokenAddressValid;
+  const isInsufficientBalance = amount && balance && parseFloat(amount) > parseFloat(balance);
+  const canProceed = isAddressValid && isAmountValid && isTokenAddressValid && !isInsufficientBalance; // Removed !isSelfTransfer
   const isLimitReached = activeCount >= MAX_ACTIVE_TRANSFERS;
 
   useEffect(() => {
@@ -324,6 +326,12 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
       setError(t.unsupportedNetwork);
       return;
     }
+
+    // New: Check if user is sending to themselves
+    // if (receiver.toLowerCase() === account.toLowerCase()) {
+    //   setError(t.cannotTransferToSelf);
+    //   return;
+    // }
 
     if (activeCount >= MAX_ACTIVE_TRANSFERS) {
       setError(`${t.limitReached} (${MAX_ACTIVE_TRANSFERS}).`);
@@ -485,21 +493,152 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
       console.error("交易出错:", err);
       let errorMessage = t.transactionFailed;
       
-      // 解析常见错误
-      const errorString = JSON.stringify(err) + (err.message || "");
-      
+      const errorString = JSON.stringify(err) + (err.message || "") + (err.reason || "") + (err.code || "") + (err.shortMessage || "");
+
+      // Define ABI for parsing
+      const extendedAbi = [
+         ...(contracts?.SecureHandshakeUnlimitedInbox?.abi || []),
+         "error TokenNotWhitelisted(address token)",
+         "error InvalidReceiver()",
+         "error TransferAmountTooLow(uint256 amount, uint256 minAmount)",
+         "error OutboxFull(uint256 limit)",
+         "error InboxFull(uint256 limit)",
+         "error AmountInsufficientForFee(uint256 amount, uint256 fee)",
+         "error FeeTransferFailed()",
+         "error PermitNotForNativeToken()",
+         "error PermitExpired(uint256 deadline)",
+         "error PermitFailed()",
+         "error UnauthorizedSender()",
+         "error RecordNotFound()",
+         "error NativeTransferFailed()",
+         "error PriceFeedNotSet()",
+         "error OraclePriceInvalid()",
+         "error OracleRoundNotComplete()",
+         "error OraclePriceStale()",
+         "error OraclePriceExpired()",
+         "error InvalidFeedAddress()",
+         "error InvalidAddress()",
+         "error InvalidLimit()",
+         "error FeeTooHigh(uint256 bps)",
+         "error InvalidHeartbeat()"
+      ];
+
+      const parseErrorData = (data) => {
+          try {
+              const iface = new ethers.Interface(extendedAbi);
+              const parsedError = iface.parseError(data);
+              if (parsedError) {
+                  if (parsedError.name === 'TokenNotWhitelisted') return t.notWhitelisted;
+                  if (parsedError.name === 'InvalidReceiver') return t.invalidReceiver;
+                  if (parsedError.name === 'TransferAmountTooLow') return t.transferAmountTooLow;
+                  if (parsedError.name === 'OutboxFull') return t.outboxFull;
+                  if (parsedError.name === 'InboxFull') return t.inboxFull;
+                  if (parsedError.name === 'AmountInsufficientForFee') return t.amountInsufficientForFee;
+                  if (parsedError.name === 'UnauthorizedSender') return t.unauthorizedSender;
+                  if (parsedError.name === 'RecordNotFound') return t.recordNotFound;
+                  if (parsedError.name === 'NativeTransferFailed') return t.nativeTransferFailed;
+                  if (parsedError.name === 'FeeTransferFailed') return t.feeTransferFailed;
+                  if (parsedError.name === 'PermitFailed') return t.permitFailed;
+                  if (['PriceFeedNotSet', 'OraclePriceInvalid', 'OracleRoundNotComplete', 'OraclePriceStale', 'OraclePriceExpired'].includes(parsedError.name)) return t.oracleError;
+                  return `${t.contractError}: ${parsedError.name}`;
+              }
+          } catch (e) { return null; }
+          return null;
+      };
+
+      // Helper to find data deeply nested in error objects
+      const findErrorData = (e) => {
+          if (!e) return null;
+          if (e.data) return e.data;
+          if (e.info && e.info.error && e.info.error.data) return e.info.error.data;
+          if (e.error && e.error.data) return e.error.data;
+          return null;
+      };
+
       if (err.code === 4001) { 
         errorMessage = t.cancelled;
-      } else if (errorString.includes("Transfer amount below $1 minimum")) {
-        errorMessage = t.minAmountError;
-      } else if (err.reason) {
-        errorMessage = t.transactionFailed + ": " + err.reason;
-      } else if (err.info && err.info.error && err.info.error.message) {
-         errorMessage = err.info.error.message;
+      } else {
+          // 1. Try parsing data directly from the error
+          let parsed = null;
+          const data = findErrorData(err);
+          if (data) {
+             parsed = parseErrorData(data);
+          }
+
+          // 2. If no direct data, try Replay to get the revert reason
+          if (!parsed) {
+              try {
+                  const provider = new ethers.BrowserProvider(walletProvider || window.ethereum);
+                  const signer = await provider.getSigner();
+                  const escrowAddress = contracts?.SecureHandshakeUnlimitedInbox?.address;
+                  const escrowAbi = contracts?.SecureHandshakeUnlimitedInbox?.abi;
+                  const contract = new ethers.Contract(escrowAddress, escrowAbi, signer);
+                  
+                  const tAddress = ethers.getAddress(selectedToken.address || customTokenAddress);
+                  const isNativeToken = tAddress === ethers.ZeroAddress;
+                  const wAmount = ethers.parseUnits(amount, 18);
+
+                  let overrides = { gasLimit: 500000 };
+                  if (isNativeToken) overrides.value = wAmount;
+                  
+                  await contract.initiate.staticCall(tAddress, receiver, wAmount, overrides);
+              } catch (replayErr) {
+                  const replayData = findErrorData(replayErr);
+                  if (replayData) {
+                      parsed = parseErrorData(replayData);
+                  }
+              }
+          }
+
+          // 3. Final decision: Use parsed error if available, otherwise generic "Transaction Failed"
+          if (parsed) {
+              errorMessage = parsed;
+          } else {
+              errorMessage = t.transactionFailed;
+          }
       }
 
       setError(errorMessage);
       toast.error(errorMessage);
+      
+      // Refresh balance to reflect gas usage even on failure
+      if (refreshBalanceTrigger) {
+          // Use a timeout to allow the network to update
+          setTimeout(() => {
+              // We can't directly call refreshBalanceTrigger as it's a value, 
+              // but we can trigger a re-fetch by updating a local state or calling the parent if provided.
+              // In this component structure, we rely on the parent or internal effect.
+              // Let's force an internal balance update.
+              const fetchAllBalances = async () => {
+                  if (!account || !activeConfig?.rpcUrl || TOKENS.length === 0) return;
+                  const provider = new ethers.JsonRpcProvider(activeConfig.rpcUrl);
+                  const newBalances = { ...tokenBalances };
+                  
+                  // Only update Native Token (for gas) and Selected Token
+                  const tokensToUpdate = [
+                      TOKENS.find(t => t.address === ethers.ZeroAddress || t.address === ""),
+                      selectedToken
+                  ].filter(Boolean);
+
+                  for (const token of tokensToUpdate) {
+                      try {
+                          let bal;
+                          if (token.address === "" || token.address === ethers.ZeroAddress) {
+                              bal = await provider.getBalance(account);
+                          } else if (ethers.isAddress(token.address)) {
+                              const tokenContract = new ethers.Contract(token.address, ["function balanceOf(address) view returns (uint256)"], provider);
+                              bal = await tokenContract.balanceOf(account);
+                          }
+                          if (bal !== undefined) {
+                              newBalances[token.symbol] = ethers.formatUnits(bal, 18);
+                          }
+                      } catch (e) { console.warn("Failed to refresh balance", e); }
+                  }
+                  setTokenBalances(newBalances);
+              };
+              fetchAllBalances();
+          }, 2000);
+      }
     } finally {
       setLoading(false);
     }
@@ -545,7 +684,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
                           {isBalanceLoading ? (
                               <FaSync className="animate-spin text-xs text-slate-500" />
                           ) : (
-                              <span>{parseFloat(balance).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 })}</span>
+                              <span>{parseFloat(balance).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 8 })}</span>
                           )}
                       </div>
                   </div>
@@ -573,7 +712,10 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs text-slate-400 font-bold uppercase tracking-wider ml-1">{t.receiverAddress}</label>
+              <div className="flex justify-between items-center">
+                <label className="text-xs text-slate-400 font-bold uppercase tracking-wider ml-1">{t.receiverAddress}</label>
+                {receiver && !isAddressValid && <span className="text-xs text-rose-400 font-medium">{t.invalidEthAddress}</span>}
+              </div>
               <div className="relative group">
                 <input 
                   placeholder="0x..." 
@@ -585,7 +727,6 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
                   onChange={e => setReceiver(e.target.value)} 
                 />
               </div>
-              {receiver && !isAddressValid && <p className="text-xs text-rose-400 ml-1 font-medium">{t.invalidEthAddress}</p>}
             </div>
 
             <div className="space-y-2">
@@ -616,18 +757,23 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
               <div className="relative">
                  <input 
                   placeholder="0.00" 
-                  type="number" 
-                  min="0"
-                  step="any"
-                  onWheel={(e) => e.target.blur()} 
+                  type="text" 
+                  inputMode="decimal"
+                  autoComplete="off"
                   className={`w-full bg-slate-900/50 border p-4 rounded-xl outline-none transition-all text-2xl font-bold placeholder:text-slate-700
-                    ${amount && !isAmountValid 
+                    ${(amount && !isAmountValid) || isInsufficientBalance
                       ? 'border-rose-500/50 focus:ring-2 focus:ring-rose-500/20' 
                       : 'border-white/5 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10'}`}
                   value={amount}
                   onChange={e => {
-                      const val = e.target.value;
-                      if (val === "" || parseFloat(val) >= 0) {
+                      // Allow digits and single dot, normalize separators (comma, full-width dots)
+                      const val = e.target.value
+                          .replace(/,/g, '.')
+                          .replace(/。/g, '.')
+                          .replace(/．/g, '.');
+                      
+                      // Validate: Allow empty string or digits with at most one decimal point
+                      if (val === "" || /^\d*\.?\d*$/.test(val)) {
                           setAmount(val);
                       }
                   }} 
@@ -637,11 +783,18 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
                 </div>
               </div>
               
-              {/* Fee Notice */}
+              {/* Fee Notice or Error */}
               <div className="flex justify-end mt-1">
-                 <span className="text-[10px] text-slate-500 flex items-center gap-1">
-                    <FaCoins size={10} /> {feeDisplay ? `${t.feePrefix || "Fee: ≈"} ${feeDisplay} (${feeRate}%), ${t.feeDeductedFromOrder}` : `${t.feeNotice.replace("0.01%", `${feeRate}%`)}`}
-                 </span>
+                 {isInsufficientBalance ? (
+                    <span className="text-[10px] text-rose-400 font-bold flex items-center gap-1">
+                        <FaExclamationTriangle size={10} />
+                        {t.insufficientBalance} {parseFloat(balance).toFixed(4)} {selectedToken.symbol}
+                    </span>
+                 ) : (
+                    <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                         <FaCoins size={10} /> {feeDisplay ? `${t.feePrefix || "Fee: ≈"} ${feeDisplay} (${feeRate}%), ${t.feeDeductedFromOrder}` : `${t.feeNotice.replace("{rate}", feeRate)}`}
+                     </span>
+                 )}
               </div>
             </div>
 
