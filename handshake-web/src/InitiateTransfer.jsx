@@ -6,6 +6,7 @@ import { useToast } from './components/Toast';
 import { useLanguage } from './contexts/LanguageContext';
 import ActivityRewards from './components/ActivityRewards';
 import TokenSelectorModal from './components/TokenSelectorModal';
+import { getEscrowContractConfig } from './config/contracts';
 
 const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSuccess, refreshBalanceTrigger, activeCount = 0, activeConfig, chainId, onRewardClaimed }) => {
   const toast = useToast();
@@ -14,6 +15,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
   // Note: activeConfig and chainId are now passed from App.jsx
 
   const contracts = activeConfig?.contracts;
+  const escrowConfig = getEscrowContractConfig(activeConfig);
   
   const NATIVE_TOKEN = ethers.ZeroAddress;
   const MAX_ACTIVE_TRANSFERS = 10;
@@ -105,7 +107,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
 
   // 批量获取代币价格
   useEffect(() => {
-    if (!activeConfig?.rpcUrl || !contracts?.SecureHandshakeUnlimitedInbox?.address) {
+    if (!activeConfig?.rpcUrl || !escrowConfig?.address) {
         setTokenPrices({});
         return;
     }
@@ -113,7 +115,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
     const fetchAllPrices = async () => {
         try {
             const provider = new ethers.JsonRpcProvider(activeConfig.rpcUrl);
-            const escrow = new ethers.Contract(contracts.SecureHandshakeUnlimitedInbox.address, ["function tokenPriceFeeds(address) view returns (address)"], provider);
+            const escrow = new ethers.Contract(escrowConfig.address, ["function tokenPriceFeeds(address) view returns (address)"], provider);
             
             const newPrices = {};
             const promises = TOKENS.map(async (token) => {
@@ -145,7 +147,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
     };
 
     fetchAllPrices();
-  }, [activeConfig, contracts]);
+  }, [activeConfig, escrowConfig]);
 
   // Update selected token price when tokenPrices changes
   useEffect(() => {
@@ -156,12 +158,12 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
 
   // Fetch Fee BPS from Contract
   useEffect(() => {
-    if (!activeConfig?.rpcUrl || !contracts?.SecureHandshakeUnlimitedInbox?.address) return;
+    if (!activeConfig?.rpcUrl || !escrowConfig?.address) return;
 
     const fetchFee = async () => {
         try {
             const provider = new ethers.JsonRpcProvider(activeConfig.rpcUrl);
-            const escrow = new ethers.Contract(contracts.SecureHandshakeUnlimitedInbox.address, ["function feeBps() view returns (uint256)"], provider);
+            const escrow = new ethers.Contract(escrowConfig.address, ["function feeBps() view returns (uint256)"], provider);
             const bps = await escrow.feeBps();
             const rate = Number(bps) / 100; // 1 bps = 0.01%
             setFeeRate(rate);
@@ -170,11 +172,11 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
         }
     };
     fetchFee();
-  }, [activeConfig, contracts]);
+  }, [activeConfig, escrowConfig]);
 
   // Fetch Token Price from Chainlink (via Escrow contract mapping)
   useEffect(() => {
-    if (!activeConfig?.rpcUrl || !contracts?.SecureHandshakeUnlimitedInbox?.address) {
+    if (!activeConfig?.rpcUrl || !escrowConfig?.address) {
         setTokenPrice(0);
         return;
     }
@@ -182,7 +184,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
     const fetchPrice = async () => {
         try {
             const provider = new ethers.JsonRpcProvider(activeConfig.rpcUrl);
-            const escrow = new ethers.Contract(contracts.SecureHandshakeUnlimitedInbox.address, ["function tokenPriceFeeds(address) view returns (address)"], provider);
+            const escrow = new ethers.Contract(escrowConfig.address, ["function tokenPriceFeeds(address) view returns (address)"], provider);
             
             const tokenAddr = selectedToken.address || ethers.ZeroAddress;
             const feedAddr = await escrow.tokenPriceFeeds(tokenAddr);
@@ -206,7 +208,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
     };
 
     fetchPrice();
-  }, [selectedToken, activeConfig, chainId, contracts]);
+  }, [selectedToken, activeConfig, chainId, escrowConfig]);
 
   // Calculate Fee in USD
   const valUSD = React.useMemo(() => {
@@ -355,8 +357,8 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
 
       const signer = await provider.getSigner();
       
-      const escrowAddress = contracts?.SecureHandshakeUnlimitedInbox?.address;
-      const escrowAbi = contracts?.SecureHandshakeUnlimitedInbox?.abi;
+      const escrowAddress = escrowConfig?.address;
+      const escrowAbi = escrowConfig?.abi;
       
       console.log("Escrow Contract Address:", escrowAddress); // Debug: Print contract address
 
@@ -431,13 +433,13 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
       let newOrder = null;
       try {
         // 创建 Interface 实例来解析日志
-        const iface = new ethers.Interface(contracts.EscrowProxy.abi);
+        const iface = new ethers.Interface(escrowAbi);
         
         // 遍历日志找到 TransferInitiated
         for (const log of receipt.logs) {
           try {
             // 只尝试解析来自 Escrow 合约的日志
-            if (log.address.toLowerCase() === contracts.EscrowProxy.address.toLowerCase()) {
+            if (log.address.toLowerCase() === escrowAddress.toLowerCase()) {
                 const parsed = iface.parseLog(log);
                 if (parsed && parsed.name === 'TransferInitiated') {
                   newOrder = {
@@ -497,7 +499,7 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
 
       // Define ABI for parsing
       const extendedAbi = [
-         ...(contracts?.SecureHandshakeUnlimitedInbox?.abi || []),
+         ...(escrowConfig?.abi || []),
          "error TokenNotWhitelisted(address token)",
          "error InvalidReceiver()",
          "error TransferAmountTooLow(uint256 amount, uint256 minAmount)",
@@ -570,8 +572,8 @@ const InitiateTransfer = ({ account, provider: walletProvider, onTransactionSucc
               try {
                   const provider = new ethers.BrowserProvider(walletProvider || window.ethereum);
                   const signer = await provider.getSigner();
-                  const escrowAddress = contracts?.SecureHandshakeUnlimitedInbox?.address;
-                  const escrowAbi = contracts?.SecureHandshakeUnlimitedInbox?.abi;
+                  const escrowAddress = escrowConfig?.address;
+                  const escrowAbi = escrowConfig?.abi;
                   const contract = new ethers.Contract(escrowAddress, escrowAbi, signer);
                   
                   const tAddress = ethers.getAddress(selectedToken.address || customTokenAddress);

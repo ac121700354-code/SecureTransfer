@@ -701,19 +701,6 @@ function AppContent() {
         </main>
           
           <footer className="max-w-7xl mx-auto px-4 md:px-6 pb-8 text-center">
-            <div className="flex justify-center items-center gap-4 mb-2">
-              <a href="https://x.com/handshk2026" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-white transition-colors">
-                <SiX size={16} />
-              </a>
-
-              <a href="https://t.me/+y7_XQC7wwTI0Mjc1" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-white transition-colors">
-                <FaTelegram size={16} />
-              </a>
-
-              <a href="https://github.com/ac121700354-code/SecureTransfer" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-white transition-colors">
-                <SiGithub size={16} />
-              </a>
-            </div>
             <button 
               onClick={() => setIsWhitepaperOpen(true)}
               className="text-[10px] text-slate-600 hover:text-blue-400 transition-colors"

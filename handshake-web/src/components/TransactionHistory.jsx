@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { FaHistory, FaArrowUp, FaArrowDown, FaCheckCircle, FaTimesCircle, FaClock, FaBan, FaExternalLinkAlt, FaSpinner, FaSync, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getEscrowContractConfig } from '../config/contracts';
 
 const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshTrigger }) => {
   const { t } = useLanguage();
@@ -14,22 +15,12 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
   const [sentPage, setSentPage] = useState(1);
   const [receivedPage, setReceivedPage] = useState(1);
   const pageSize = 5;
+  const escrowConfig = getEscrowContractConfig(activeConfig);
 
   // Reset history when account or network changes
-  useEffect(() => {
-    setHistory([]);
-    setLastScannedBlock(null);
-    setHasMore(true);
-    setError(null);
-    setSentPage(1);
-    setReceivedPage(1);
-    // Initial fetch of all history
-    fetchAllHistory();
-  }, [account, activeConfig]);
-
   // Fetch all history from block 0 to latest
-  const fetchAllHistory = async () => {
-      if (!account || !provider || !activeConfig) return;
+  const fetchAllHistory = useCallback(async () => {
+      if (!account || !provider || !activeConfig || !escrowConfig) return;
       setLoading(true);
       setError(null);
 
@@ -38,8 +29,8 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
           if (provider && !provider.call && provider.request) {
               runner = new ethers.BrowserProvider(provider);
           }
-          const escrowAddress = activeConfig.contracts.EscrowProxy.address;
-          const escrowAbi = activeConfig.contracts.EscrowProxy.abi;
+          const escrowAddress = escrowConfig.address;
+          const escrowAbi = escrowConfig.abi;
           const contract = new ethers.Contract(escrowAddress, escrowAbi, runner);
 
           // Use a simple 0 to latest range
@@ -128,7 +119,7 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
                           receiver = log.args[2];
                           tokenAddr = log.args[3];
                           amount = log.args[4];
-                          action = log.args[5];
+                          action = log.args[7];
                       } catch (e) {
                           console.warn("Error parsing Settled log args:", e);
                           // Fallback to named access if available
@@ -227,14 +218,25 @@ const TransactionHistory = ({ account, provider, chainId, activeConfig, refreshT
       } finally {
           setLoading(false);
       }
-  };
+  }, [account, provider, activeConfig, escrowConfig]);
+
+  useEffect(() => {
+    setHistory([]);
+    setLastScannedBlock(null);
+    setHasMore(true);
+    setError(null);
+    setSentPage(1);
+    setReceivedPage(1);
+    // Initial fetch of all history
+    fetchAllHistory();
+  }, [account, activeConfig, fetchAllHistory]);
 
   // Trigger refresh
   useEffect(() => {
     if (refreshTrigger) {
         fetchAllHistory();
     }
-  }, [refreshTrigger]);
+  }, [refreshTrigger, fetchAllHistory]);
 
 
   const sentHistory = history.filter(h => h.type === 'send');

@@ -4,10 +4,12 @@ import { ethers } from 'ethers';
 import { FaCalendarCheck, FaGift, FaTrophy, FaCoins, FaCheckCircle, FaSpinner, FaBolt } from 'react-icons/fa';
 import { useToast } from './Toast';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getEscrowContractConfig } from '../config/contracts';
 
 const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardClaimed, miniMode }) => {
   const toast = useToast();
   const { t } = useLanguage();
+  const escrowConfig = getEscrowContractConfig(activeConfig);
   
   // Loading States
   const [checkInLoading, setCheckInLoading] = useState(false);
@@ -32,7 +34,7 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
 
   // Fetch transfer count from Escrow Contract directly (Optimized)
   const fetchOnChainTransferStats = async () => {
-    if (!account || !activeConfig?.contracts?.EscrowProxy || !provider) {
+    if (!account || !escrowConfig || !provider) {
         setStatsLoading(false);
         return;
     }
@@ -40,8 +42,8 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
     setStatsLoading(true);
 
     try {
-        const escrowAddress = activeConfig.contracts.EscrowProxy.address;
-        const escrowAbi = activeConfig.contracts.EscrowProxy.abi;
+        const escrowAddress = escrowConfig.address;
+        const escrowAbi = escrowConfig.abi;
 
         // Initialize RPC Provider
         const rpcUrl = activeConfig.rpcUrl;
@@ -88,7 +90,7 @@ const ActivityRewards = ({ account, provider, chainId, activeConfig, onRewardCla
       return () => {
           window.removeEventListener('user_transfer_completed', handleTransferUpdate);
       };
-  }, [account, activeConfig, provider]);
+  }, [account, escrowConfig, activeConfig, provider]);
 
   // Debug Helper
   const debugIncrement = () => {

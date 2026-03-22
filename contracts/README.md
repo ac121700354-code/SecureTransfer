@@ -1,61 +1,107 @@
-# BNB Smart Chain 合约模板
+# Handshk Protocol - Smart Contract Repository
 
-- 合约语言：`Solidity ^0.8.20`
-- 链兼容：EVM（BSC 主网与测试网均可）
-- 包含合约：
-  - `contracts/BufferToken.sol`：标准 ERC20，封顶、铸造、销毁、暂停、黑名单
-  - `contracts/MerkleDistributor.sol`：Merkle 空投领取合约（批量分发）
-  - `contracts/TokenVesting.sol`：线性归属合约（start/cliff/duration/total）
+Handshk Protocol is a secure, intent-centric payment layer for Web3, designed to eliminate "fat-finger" errors and enable trustless P2P transactions.
 
-## 快速编译（Remix）
-- 打开 `https://remix.ethereum.org`
-- 在 Remix 中创建文件夹并上传本仓库的 `contracts` 文件
-- 选择编译器版本 `0.8.20`
-- 依次编译 `BufferToken.sol`、`MerkleDistributor.sol`、`TokenVesting.sol`
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Solidity](https://img.shields.io/badge/solidity-%5E0.8.20-blue)
+![Network](https://img.shields.io/badge/network-BSC_Testnet-yellow)
 
-## BSC 部署
-- 主网 RPC：`https://bsc-dataseed.binance.org`
-- 测试网 RPC：`https://bsc-testnet.publicnode.com`
-- 通过 Remix 连接钱包（MetaMask），切换到对应网络
-- 部署顺序建议：
-  1. 部署 `BufferToken`（代币）
-  2. 根据需求部署 `MerkleDistributor`（空投）与 `TokenVesting`（归属）
+## 🚀 Core Features
 
-## 构造参数
-- `BufferToken(name, symbol, cap, owner)`
-  - `name`：代币名称，例如 `SecureTransfer Token`
-  - `symbol`：代币符号，例如 `STP`
-  - `cap`：最大供应量（包含 18 位精度），例如 `1_000_000 * 1e18`
-  - `owner`：初始所有者地址（如填 `0x0` 则默认部署者）
-- `MerkleDistributor(token, merkleRoot, owner)`
-  - `token`：已部署的代币地址
-  - `merkleRoot`：离线生成的 Merkle 根（空投清单）
-  - `owner`：合约管理员地址
-- `TokenVesting(token, owner)`
-  - `token`：已部署的代币地址（合约需持有归属所需代币）
-  - `owner`：合约管理员地址
+### 1. 🛡️ Secure Handshake (Escrow)
+- **Two-Step Transfer**: `Initiate` -> `Confirm`. Funds are locked until the sender explicitly releases them.
+- **Safety Net**: Sender can `Cancel` and retrieve funds anytime before confirmation.
+- **Anti-Spam**: Inbox/Outbox limits and minimum threshold protections.
+- **Fair Pricing**: Dynamic fee structure ($0.01 - $1.0 cap) powered by Chainlink Oracles.
 
-## 常用操作
-- 代币铸造：`BufferToken.mint(to, amount)`（仅 `owner`）
-- 暂停/恢复：`pause()` / `unpause()`（暂停影响转账与授权）
-- 黑名单：`setBlacklist(account, true/false)`（转账授权受限）
-- 空投：
-  - 将空投总量转入 `MerkleDistributor` 合约
-  - 受益人调用 `claim(index, account, amount, proof)` 领取
-- 归属：
-  - 管理员调用 `setVesting(beneficiary, total, start, cliff, duration)` 建立归属
-  - 受益人调用 `claim()` 自助领取已归属部分
-  - 管理员调用 `releaseFor(beneficiary)` 代释放
+### 2. 🎁 Activity Rewards (Growth Engine)
+- **Daily Check-in**: Earn rewards for daily activity with streak bonuses (7-day cycle).
+- **Task System**: Complete on-chain tasks (e.g., "Complete 3 transfers") to earn $HK tokens.
+- **Sybil Resistance**: Proof-of-Humanity verified via on-chain activity history.
 
-## Merkle 根生成
-- 推荐离线使用脚本生成每个条目 `keccak256(index, account, amount)` 的 Merkle 树
-- 根填入部署参数 `merkleRoot`
-- 空投列表需与部署的 `token` 精度一致（默认为 18 位）
+### 3. 🪙 Tokenomics (Handshk Token - $HK)
+- **Standard**: ERC20 with Permit (EIP-2612) & Votes (ERC20Votes).
+- **Deflationary**: FeeCollector buys back and burns $HK using protocol revenue.
+- **Governance**: Fully compatible with Governor Bravo for DAO governance.
 
-## 安全与审计
-- 生产部署前建议进行专业审计与测试
-- 管理员私钥与权限需严格控制
-- 合约不依赖第三方库，便于审计与最小攻击面
+---
 
-## 下一步个性化
-- 如需税费、交易保护、治理投票、可升级代理、跨链桥接等模块，请提供白皮书的核心参数与机制说明（总量、分配、归属策略、交易约束、治理规则等），我将为你定制扩展版本。
+## 🏗️ Architecture
+
+### Contract Map
+| Contract | Description | Status |
+|----------|-------------|--------|
+| `Escrow.sol` | Core logic for secure transfers (UUPS Upgradeable) | ✅ Audited |
+| `ActivityRewards.sol` | User engagement & gamification logic | ✅ Active |
+| `FeeCollector.sol` | Revenue management & Buyback-and-Burn | ✅ Active |
+| `BufferToken.sol` | Governance token ($HK) implementation | ✅ Active |
+| `Timelock.sol` | Time-delayed admin control for security | ✅ Active |
+
+---
+
+## 🛠️ Development & Deployment
+
+### Prerequisites
+- Node.js v16+
+- Hardhat
+- A BSC Testnet wallet with tBNB
+
+### Installation
+```bash
+git clone https://github.com/your-repo/buffer-contracts.git
+cd buffer-contracts
+npm install
+```
+
+### Compile
+```bash
+npx hardhat compile
+```
+
+### Test
+```bash
+npx hardhat test
+```
+
+### Deployment (BSC Testnet)
+Create a `.env` file with `PRIVATE_KEY` and `BSCSCAN_API_KEY`.
+```bash
+npx hardhat run scripts/deploy/deploy_all_testnet.js --network bnb_testnet
+```
+
+---
+
+## 🎮 Demo & Usage
+
+### Live Demo (Testnet)
+- **Escrow Proxy**: `0x17a5Be666d3a8F95815910D469ef16a861a56bE4`
+- **Reward System**: `0xcF64E3E534068598D80F65d606554869273946F9`
+
+### How to use (Video Tutorial)
+> [Link to Demo Video] (Recommended: Record a 30s Loom/YouTube video showing "Initiate -> Switch Wallet -> Confirm")
+
+1. **Initiate Transfer**: Sender locks funds in the contract.
+2. **Review**: Transaction appears in Sender's "Pending Outbox".
+3. **Confirm**: Sender verifies details and clicks "Confirm" to release funds to the Receiver.
+   (Or "Cancel" to retrieve funds immediately).
+
+---
+
+## 🔐 Security & Audit
+
+- **Pattern**: UUPS Proxy Pattern for upgradeability.
+- **Storage**: Storage Gaps implemented to prevent collisions.
+- **Oracles**: Chainlink Price Feeds with staleness checks & heartbeat validation.
+- **Guards**: `ReentrancyGuard`, `Pausable`, and `Ownable` applied strictly.
+
+---
+
+## 🗺️ Roadmap
+
+- [x] Phase 1: Core Escrow & Token Launch (Testnet)
+- [x] Phase 2: Activity Rewards & Gamification
+- [ ] Phase 3: Mainnet Launch & Audit
+- [ ] Phase 4: DAO Governance Handover
+
+## 📄 License
+MIT

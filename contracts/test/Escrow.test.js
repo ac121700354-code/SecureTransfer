@@ -9,6 +9,7 @@ describe("Escrow (SecureHandshakeUnlimitedInbox)", function () {
   
   const INITIAL_SUPPLY = ethers.parseEther("1000000");
   const ETH_PRICE = 200000000000; // $2000 * 1e8
+  const CAPPED_FEE = ethers.parseEther("0.0005"); // $1.00 at $2000/token
 
   beforeEach(async function () {
     [owner, userA, userB, treasury] = await ethers.getSigners();
@@ -56,8 +57,11 @@ describe("Escrow (SecureHandshakeUnlimitedInbox)", function () {
       const event = receipt.logs.find(log => log.fragment && log.fragment.name === 'TransferInitiated');
       expect(event).to.not.be.undefined;
       
+      const expectedNetAmount = amount - CAPPED_FEE;
+
       // Check escrow balance
-      expect(await token.balanceOf(await escrow.getAddress())).to.equal(amount);
+      expect(await token.balanceOf(await escrow.getAddress())).to.equal(expectedNetAmount);
+      expect(await token.balanceOf(treasury.address)).to.equal(CAPPED_FEE);
     });
 
     it("Should fail if allowance is insufficient", async function () {
@@ -119,7 +123,8 @@ describe("Escrow (SecureHandshakeUnlimitedInbox)", function () {
         )
       ).to.emit(escrow, "TransferInitiated");
       
-      expect(await token.balanceOf(await escrow.getAddress())).to.equal(amount);
+      expect(await token.balanceOf(await escrow.getAddress())).to.equal(amount - CAPPED_FEE);
+      expect(await token.balanceOf(treasury.address)).to.equal(CAPPED_FEE);
     });
   });
 
@@ -139,7 +144,7 @@ describe("Escrow (SecureHandshakeUnlimitedInbox)", function () {
       // 3rd should fail
       await expect(
         escrow.connect(userA).initiate(await token.getAddress(), userB.address, amount)
-      ).to.be.revertedWith("Your outbox is full");
+      ).to.be.revertedWithCustomError(escrow, "OutboxFull").withArgs(2);
     });
   });
 
@@ -162,12 +167,12 @@ describe("Escrow (SecureHandshakeUnlimitedInbox)", function () {
       // User B tries to confirm (should fail)
       await expect(
         escrow.connect(userB).confirm(id)
-      ).to.be.revertedWith("Only sender can authorize");
+      ).to.be.revertedWithCustomError(escrow, "UnauthorizedSender");
 
       // Random user tries to cancel
       await expect(
         escrow.connect(treasury).cancel(id)
-      ).to.be.revertedWith("Only sender can cancel");
+      ).to.be.revertedWithCustomError(escrow, "UnauthorizedSender");
     });
   });
 });

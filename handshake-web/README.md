@@ -1,16 +1,59 @@
-# React + Vite
+# Handshk Protocol - Web Interface
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Handshk Protocol is a secure, intent-centric payment layer for Web3, designed to eliminate "fat-finger" errors and enable trustless P2P transactions.
 
-Currently, two official plugins are available:
+This repository contains the frontend DApp for interacting with the Handshk Protocol smart contracts.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Features
 
-## React Compiler
+- **Secure Transfer**: Initiate and release transfers with a two-step process.
+- **Activity Rewards**: Check-in daily and claim rewards for using the protocol.
+- **Wallet Integration**: Supports MetaMask, Rabby, and other Injected Wallets.
+- **Real-time Updates**: View pending inbox/outbox and transaction history.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠️ Tech Stack
 
-## Expanding the ESLint configuration
+- **Framework**: [React](https://reactjs.org/) + [Vite](https://vitejs.dev/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Web3**: [Ethers.js](https://docs.ethers.org/v6/)
+- **Icons**: [React Icons](https://react-icons.github.io/react-icons/)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 📦 Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-repo/handshk-web.git
+   cd handshk-web
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Configure Environment**
+   Create a `.env` file in the root directory:
+   ```env
+   VITE_ESCROW_ADDRESS=0x17a5Be666d3a8F95815910D469ef16a861a56bE4
+   VITE_REWARDS_ADDRESS=0xcF64E3E534068598D80F65d606554869273946F9
+   VITE_TOKEN_ADDRESS=0x... (Your BufferToken Address)
+   VITE_CHAIN_ID=97 (BSC Testnet)
+   ```
+
+4. **Start Development Server**
+   ```bash
+   npm run dev
+   ```
+
+## 🌐 Deployment
+
+Build for production:
+```bash
+npm run build
+```
+
+The output will be in the `dist` directory, ready to be deployed to Vercel, Netlify, or IPFS.
+
+## 📄 License
+
+MIT

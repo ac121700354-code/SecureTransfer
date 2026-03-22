@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { FaInbox, FaSignOutAlt, FaSync, FaCheckCircle, FaTimesCircle, FaHourglassHalf, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
-import config from './config.json';
 import { useToast } from './components/Toast';
 import { useLanguage } from './contexts/LanguageContext';
 import ConfirmModal from './components/ConfirmModal';
+import { getEscrowContractConfig } from './config/contracts';
 
 // Note: CONTRACT_ADDRESS is now dynamic, we get it inside the component.
 
@@ -123,6 +123,7 @@ export default function OrderList({ account, provider: walletProvider, refreshSi
   // Note: activeConfig is now passed from App.jsx
 
   const contracts = activeConfig?.contracts;
+  const escrowConfig = getEscrowContractConfig(activeConfig);
 
   const [inbox, setInbox] = useState([]);
   const [outbox, setOutbox] = useState([]);
@@ -138,12 +139,12 @@ export default function OrderList({ account, provider: walletProvider, refreshSi
 
   // --- 核心：安全的数据清洗逻辑 ---
   const fetchOrders = useCallback(async () => {
-    if (!account || !contracts || !activeConfig?.rpcUrl) return;
+    if (!account || !escrowConfig || !activeConfig?.rpcUrl) return;
     
     try {
       // Use JsonRpcProvider to view data from the selected network, regardless of wallet state
       const provider = new ethers.JsonRpcProvider(activeConfig.rpcUrl);
-      const contract = new ethers.Contract(contracts.SecureHandshakeUnlimitedInbox.address, contracts.SecureHandshakeUnlimitedInbox.abi, provider);
+      const contract = new ethers.Contract(escrowConfig.address, escrowConfig.abi, provider);
 
       // 1. 获取 IDs
       const [inIds, outIds] = await Promise.all([
@@ -194,12 +195,12 @@ export default function OrderList({ account, provider: walletProvider, refreshSi
     } finally {
       setIsInitialLoading(false);
     }
-  }, [account, contracts, onStatsUpdate]);
+  }, [account, escrowConfig, activeConfig, onStatsUpdate]);
 
   // 1. 初始化或账户变化时：拉取数据
   // 强制显示 Loading
   useEffect(() => {
-    if (account && contracts) {
+    if (account && escrowConfig) {
        // 注意：如果想在账户切换时先清空数据（避免看到别人的数据），这里可以保留清空。
        // 但如果是为了防止“网络错误导致清空”，我们只应该在 fetchOrders 内部保护。
        // 这里为了用户体验（不看别人数据），切换账户时必须清空。
@@ -208,7 +209,7 @@ export default function OrderList({ account, provider: walletProvider, refreshSi
        setIsInitialLoading(true);
        fetchOrders().finally(() => setIsInitialLoading(false));
     }
-  }, [account, fetchOrders, contracts]); 
+  }, [account, fetchOrders, escrowConfig]); 
 
   // 2. 收到刷新信号时：静默更新（绝不显示 Loading）
   useEffect(() => {
@@ -224,11 +225,11 @@ export default function OrderList({ account, provider: walletProvider, refreshSi
     } else {
         // 数字信号：静默拉取
         // 这里不需要清空数据，直接 fetch，如果失败，fetchOrders 内部的 catch 会捕获，不会覆盖现有数据
-        if (contracts) {
+        if (escrowConfig) {
           fetchOrders(); 
         }
     }
-  }, [refreshSignal, fetchOrders, contracts]);
+  }, [refreshSignal, fetchOrders, escrowConfig]);
 
   // 监听 activeConfig 变化（网络切换），强制显示 Loading
   useEffect(() => {
@@ -247,7 +248,7 @@ export default function OrderList({ account, provider: walletProvider, refreshSi
 
   // --- 核心：安全的操作处理逻辑 ---
   const handleAction = async (id, method) => {
-    if (processingState || !contracts) return; // 防止双重点击
+    if (processingState || !escrowConfig) return; // 防止双重点击
 
     // Add confirmation for 'confirm' (Release Funds) action
     if (method === 'confirm') {
@@ -283,7 +284,7 @@ export default function OrderList({ account, provider: walletProvider, refreshSi
       }
 
       const signer = await provider.getSigner();
-      const contract = new ethers.Contract(contracts.SecureHandshakeUnlimitedInbox.address, contracts.SecureHandshakeUnlimitedInbox.abi, signer);
+      const contract = new ethers.Contract(escrowConfig.address, escrowConfig.abi, signer);
       
       const currentSigner = await signer.getAddress();
       console.log(`Action: ${method} by ${currentSigner}`);

@@ -9,7 +9,7 @@ describe("Buffer Protocol Integration Test", function () {
   const ONE_DOLLAR_IN_BNB = ethers.parseEther("0.003"); // 假设 BNB = $333
   const FEE_BPS = 10n; // 0.1%
 
-  before(async function () {
+  beforeEach(async function () {
     [owner, userA, userB, treasuryWallet] = await ethers.getSigners();
 
     // 1. 部署 BufferToken
@@ -69,7 +69,8 @@ describe("Buffer Protocol Integration Test", function () {
     // 验证存储
     const record = await escrow.activeTransfers(transferId);
     expect(record.sender).to.equal(userA.address);
-    expect(record.amount).to.equal(amount);
+    expect(record.totalAmount).to.equal(amount);
+    expect(record.amount).to.equal(amount - ethers.parseEther("0.0001"));
   });
 
   it("Should calculate fee correctly (Cap at $1.0)", async function () {
@@ -85,22 +86,25 @@ describe("Buffer Protocol Integration Test", function () {
     const receipt = await tx.wait();
     const event = receipt.logs.find(log => log.fragment && log.fragment.name === 'TransferInitiated');
     const id = event.args[0];
+    const record = await escrow.activeTransfers(id);
 
     // 2. 记录余额
+    const collectorBalanceAfterInitiate = await ethers.provider.getBalance(await feeCollector.getAddress());
     const userBBalanceBefore = await ethers.provider.getBalance(userB.address);
-    const collectorBalanceBefore = await ethers.provider.getBalance(await feeCollector.getAddress());
 
     // 3. 确认放款
     await escrow.connect(userA).confirm(id);
 
     // 4. 验证费用 ($1.0 in BNB at $2000/BNB = 0.0005 BNB)
     const userBBalanceAfter = await ethers.provider.getBalance(userB.address);
-    const collectorBalanceAfter = await ethers.provider.getBalance(await feeCollector.getAddress());
+    const collectorBalanceAfterConfirm = await ethers.provider.getBalance(await feeCollector.getAddress());
 
     const expectedFee = ethers.parseEther("0.0005"); 
     
-    expect(collectorBalanceAfter - collectorBalanceBefore).to.equal(expectedFee);
-    expect(userBBalanceAfter - userBBalanceBefore).to.equal(amount - expectedFee);
+    expect(amount - record.amount).to.equal(expectedFee);
+    expect(collectorBalanceAfterInitiate).to.equal(expectedFee);
+    expect(collectorBalanceAfterConfirm).to.equal(collectorBalanceAfterInitiate);
+    expect(userBBalanceAfter - userBBalanceBefore).to.equal(record.amount);
   });
 
   it("Should calculate fee correctly (Floor at $0.01)", async function () {
@@ -116,23 +120,25 @@ describe("Buffer Protocol Integration Test", function () {
     const receipt = await tx.wait();
     const event = receipt.logs.find(log => log.fragment && log.fragment.name === 'TransferInitiated');
     const id = event.args[0];
+    const record = await escrow.activeTransfers(id);
 
     // 2. 记录余额
+    const collectorBalanceAfterInitiate = await ethers.provider.getBalance(await feeCollector.getAddress());
     const userBBalanceBefore = await ethers.provider.getBalance(userB.address);
-    const collectorBalanceBefore = await ethers.provider.getBalance(await feeCollector.getAddress());
 
     // 3. 确认放款
     await escrow.connect(userA).confirm(id);
 
     // 4. 验证费用 ($0.01 in BNB at $2000/BNB = 0.000005 BNB)
     const userBBalanceAfter = await ethers.provider.getBalance(userB.address);
-    const collectorBalanceAfter = await ethers.provider.getBalance(await feeCollector.getAddress());
+    const collectorBalanceAfterConfirm = await ethers.provider.getBalance(await feeCollector.getAddress());
 
     const expectedFee = ethers.parseEther("0.000005"); 
     
-    // 允许微小误差 (1 wei)
-    expect(collectorBalanceAfter - collectorBalanceBefore).to.closeTo(expectedFee, 1);
-    expect(userBBalanceAfter - userBBalanceBefore).to.closeTo(amount - expectedFee, 1);
+    expect(amount - record.amount).to.closeTo(expectedFee, 1);
+    expect(collectorBalanceAfterInitiate).to.closeTo(expectedFee, 1);
+    expect(collectorBalanceAfterConfirm).to.equal(collectorBalanceAfterInitiate);
+    expect(userBBalanceAfter - userBBalanceBefore).to.equal(record.amount);
   });
 
   it("Should allow cancel and refund", async function () {
@@ -145,6 +151,7 @@ describe("Buffer Protocol Integration Test", function () {
     );
     const receipt = await tx.wait();
     const id = receipt.logs[0].args[0];
+    const record = await escrow.activeTransfers(id);
 
     const escrowBalanceBefore = await ethers.provider.getBalance(await escrow.getAddress());
     
@@ -152,6 +159,6 @@ describe("Buffer Protocol Integration Test", function () {
     
     const escrowBalanceAfter = await ethers.provider.getBalance(await escrow.getAddress());
     
-    expect(escrowBalanceBefore - escrowBalanceAfter).to.equal(amount);
+    expect(escrowBalanceBefore - escrowBalanceAfter).to.equal(record.amount);
   });
 });
